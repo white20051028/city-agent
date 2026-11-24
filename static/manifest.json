@@ -1,0 +1,10 @@
+{
+  "name": "城市探索 Agent",
+  "short_name": "城市探索",
+  "description": "按你的时间和预算，推荐附近值得去的地方",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": []
+}

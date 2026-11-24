@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>城市探索 Agent</title>
+<link rel="manifest" href="/static/manifest.json">
+<style>
+  :root {
+    --bg: #0f172a; --card: #1e293b; --card-2: #273449;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+    --border: #334155; --ok: #22c55e; --warn: #f97316;
+    --user: #1d4ed8; --bot: #1e293b;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0 auto; background: var(--bg); color: var(--text);
+    font: 15px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 16px 16px 120px; max-width: 720px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+
+  .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  select, input[type=text] {
+    flex: 1; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card);
+    color: var(--text); font-size: 14px; outline: none; min-width: 0;
+  }
+  select:focus, input[type=text]:focus { border-color: var(--accent); }
+  button {
+    padding: 10px 16px; border: none; border-radius: 10px;
+    background: var(--accent); color: #0b1220; font-weight: 600;
+    font-size: 14px; cursor: pointer; white-space: nowrap;
+  }
+  button:disabled { opacity: .5; }
+  button.ghost {
+    background: var(--card); color: var(--muted);
+    border: 1px solid var(--border); font-weight: 500;
+  }
+  button.ghost.on { color: var(--ok); border-color: var(--ok); }
+  .label { color: var(--muted); font-size: 12px; margin: 0 0 4px; }
+
+  /* 聊天区 */
+  #chat { margin-bottom: 10px; }
+  .bubble {
+    max-width: 88%; padding: 10px 14px; border-radius: 14px;
+    margin-bottom: 10px; word-break: break-word;
+  }
+  .bubble.me {
+    margin-left: auto; background: var(--user); color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .bubble.bot {
+    background: var(--bot); border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .bubble.bot strong { color: #fff; }
+  .bubble .meta-line { color: var(--muted); font-size: 12px; }
+  .bubble .clarify { color: var(--warn); font-size: 13px; }
+
+  #map { height: 260px; border-radius: 12px; margin-bottom: 10px; }
+
+  .chips-title { color: var(--muted); font-size: 12px; margin: 4px 0 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .chip {
+    padding: 6px 12px; border-radius: 999px; font-size: 13px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer;
+  }
+
+  /* 会话抽屉 */
+  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .topbar h1 { flex: 1; margin: 0; }
+  .hamburger {
+    padding: 6px 10px; border-radius: 8px; background: var(--card);
+    border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+    font-size: 16px; line-height: 1;
+  }
+  #drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 280px;
+    background: #0b1220; border-right: 1px solid var(--border);
+    transform: translateX(-100%); transition: transform .2s;
+    z-index: 1000; padding: 16px 12px; overflow-y: auto;
+  }
+  #drawer.open { transform: translateX(0); }
+  #overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: none; z-index: 999;
+  }
+  #overlay.open { display: block; }
+  .drawer-title {
+    color: var(--muted); font-size: 12px; margin: 0 0 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .newchat {
+    width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 10px;
+    background: var(--card); color: var(--text); border: 1px solid var(--border);
+    cursor: pointer; font-size: 14px; text-align: center;
+  }
+  .sess {
+    padding: 10px 10px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; color: var(--text); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .sess:hover { background: var(--card); }
+  .sess.active { background: var(--card-2); border-left: 3px solid var(--accent); }
+  .sess .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sess .x { color: var(--muted); font-size: 16px; padding: 0 4px; }
+  .sess .x:hover { color: #f87171; }
+  .sess .when { color: var(--muted); font-size: 11px; }
+
+  .mk {
+    background: #38bdf8; color: #0b1220; font-weight: 700;
+    width: 26px; height: 26px; line-height: 26px; text-align: center;
+    border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    box-shadow: 0 2px 6px rgba(0,0,0,.4); border: 2px solid #fff;
+    font-size: 13px; cursor: pointer;
+  }
+  .mk > span { display: block; transform: rotate(45deg); }
+  .mk.origin { background: var(--warn); cursor: grab; }
+  .mk.me     { background: var(--ok); }
+  .mk.search { background: #94a3b8; }
+
+  /* 底部固定输入 */
+  .composer {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(transparent, var(--bg) 18%);
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+    max-width: 720px; margin: 0 auto;
+  }
+  .composer .row { margin-bottom: 0; }
+
+  .spinner { display: none; color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .spinner.on { display: block; }
+  .err { color: #f87171; }
+  .poi-line { font-size: 13px; padding: 3px 0; }
+  .poi-line .n { color: var(--accent); font-weight: 700; margin-right: 4px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="hamburger" id="menu">☰</button>
+  <h1>城市探索 Agent</h1>
+</div>
+<div class="sub">数据来自高德 · Planner-Critic 双阶段 · 支持多轮追问</div>
+
+<div id="overlay"></div>
+<div id="drawer">
+  <div class="drawer-title"><span>会话</span><span id="closeDrawer" style="cursor:pointer">✕</span></div>
+  <button class="newchat" id="newChat">＋ 新会话</button>
+  <div id="sessList"></div>
+</div>
+
+<div class="row">
+  <select id="prov"></select>
+  <select id="city"></select>
+  <button class="ghost" id="gps">📍 定位</button>
+</div>
+
+<div class="label">起点（可拖动地图橙色标记，或输入地名）</div>
+<div class="row">
+  <input id="origin" type="text" placeholder="留空则用浏览器定位 / 问题里的地名">
+  <button class="ghost" id="reset">↺ 清除</button>
+</div>
+
+<div id="chat"></div>
+<div id="map"></div>
+<div id="spinner" class="spinner">Agent 正在思考…</div>
+
+<div class="chips">
+  <span class="chip" data-q="附近有什么好吃的">附近吃什么</span>
+  <span class="chip" data-q="附近能去哪玩">附近能去哪玩</span>
+  <span class="chip" data-q="附近两小时能去哪玩">两小时能去哪</span>
+  <span class="chip" data-q="附近有什么喝的">附近有什么喝的</span>
+</div>
+
+<div class="composer">
+  <div class="row">
+    <input id="q" type="text" placeholder="问点什么…（可以接着追问）" autocomplete="off">
+    <button id="go">发送</button>
+    <button class="ghost" id="clearChat">清空</button>
+  </div>
+</div>
+
+<script>
+const AMAP_KEY = "__AMAP_KEY__";
+
+const $ = id => document.getElementById(id);
+const $q = $('q'), $go = $('go'), $chat = $('chat'), $spinner = $('spinner');
+const $map = $('map'), $prov = $('prov'), $city = $('city');
+const $origin = $('origin'), $gps = $('gps'), $reset = $('reset');
+
+let cityMap = {};
+let map = null, markers = [];
+let myLoc = null;        // 浏览器定位 [lon, lat]
+let originXY = null;     // 起点坐标
+let messages = [];       // 当前会话的消息
+let sessions = [];       // [{id, title, messages, updatedAt}]
+let currentId = null;
+let lastPois = [], lastCenter = null;
+
+// ---------- 工具 ----------
+function haversine(a, b) {
+  const R = 6371000, T = x => x * Math.PI / 180;
+  const dLat = T(b[1] - a[1]), dLon = T(b[0] - a[0]);
+  const s = Math.sin(dLat / 2) ** 2 +
+            Math.cos(T(a[1])) * Math.cos(T(b[1])) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+const fmtDist = m => m < 1000 ? Math.round(m) + 'm' : (m / 1000).toFixed(1) + 'km';
+const mk = (t, c) => '<div class="mk ' + (c || '') + '"><span>' + t + '</span></div>';
+function md(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/_(.+?)_/g, '<span class="meta-line">$1</span>')
+          .replace(/\n/g, '<br>');
+}
+
+// ---------- 持久化 ----------
+function saveSessions() {
+  try {
+    // 每个会话只留最近 30 条，防 localStorage 爆
+    const slim = sessions.map(s => ({
+      ...s,
+      messages: (s.messages || []).slice(-30),
+    }));
+    localStorage.setItem('sessions', JSON.stringify(slim.slice(0, 30)));
+    localStorage.setItem('currentId', currentId || '');
+  } catch (e) {}
+}
+function save() {
+  // 把当前 messages 同步回 sessions
+  const s = sessions.find(x => x.id === currentId);
+  if (s) { s.messages = messages; s.updatedAt = Date.now(); s.title = titleOf(messages); }
+  saveSessions();
+  try {
+    localStorage.setItem('origin', JSON.stringify({ xy: originXY, name: $origin.value }));
+    localStorage.setItem('myLoc', JSON.stringify(myLoc));
+  } catch (e) {}
+}
+function titleOf(msgs) {
+  const first = (msgs || []).find(m => m.role === 'user');
+  const t = first ? first.content : '新会话';
+  return t.length > 18 ? t.slice(0, 18) + '…' : t;
+}
+function newSession() {
+  const id = 's' + Date.now();
+  sessions.unshift({ id, title: '新会话', messages: [], updatedAt: Date.now() });
+  currentId = id;
+  messages = [];
+  saveSessions();
+  renderSessions();
+  renderChat();
+  drawMarkers(null, []);
+  closeDrawer();
+}
+function switchSession(id) {
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+  currentId = id;
+  messages = s.messages || [];
+  saveSessions();
+  renderSessions();
+  renderChat();
+  const last = [...messages].reverse().find(m => m.role === 'assistant' && m.location);
+  if (last) drawMarkers(last.location, last.pois || []);
+  else drawMarkers(null, []);
+  closeDrawer();
+}
+function deleteSession(id, ev) {
+  ev.stopPropagation();
+  if (!confirm('删除这个会话？')) return;
+  sessions = sessions.filter(x => x.id !== id);
+  if (currentId === id) {
+    if (sessions.length) switchSession(sessions[0].id);
+    else newSession();
+  } else {
+    saveSessions();
+    renderSessions();
+  }
+}
+function renderSessions() {
+  const list = $('sessList');
+  list.innerHTML = sessions.map(s => {
+    const d = Math.round((Date.now() - (s.updatedAt || 0)) / 60000);
+    const when = d < 1 ? '刚刚' : d < 60 ? d + ' 分钟前'
+               : d < 1440 ? Math.round(d / 60) + ' 小时前'
+               : Math.round(d / 1440) + ' 天前';
+    return '<div class="sess ' + (s.id === currentId ? 'active' : '') +
+           '" data-id="' + s.id + '">' +
+           '<span class="t">' + (s.title || '新会话') + '</span>' +
+           '<span class="when">' + when + '</span>' +
+           '<span class="x" data-del="' + s.id + '">×</span></div>';
+  }).join('') || '<div style="color:#94a3b8;font-size:12px">还没有会话</div>';
+
+  list.querySelectorAll('.sess').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.dataset.del) return;
+      switchSession(el.dataset.id);
+    });
+  });
+  list.querySelectorAll('.x').forEach(el => {
+    el.addEventListener('click', e => deleteSession(el.dataset.del, e));
+  });
+}
+function load() {
+  try {
+    const o = JSON.parse(localStorage.getItem('origin') || 'null');
+    if (o) { originXY = o.xy || null; if (o.name) $origin.value = o.name; }
+    myLoc = JSON.parse(localStorage.getItem('myLoc') || 'null');
+    sessions = JSON.parse(localStorage.getItem('sessions') || '[]');
+    currentId = localStorage.getItem('currentId') || null;
+  } catch (e) { sessions = []; }
+
+  if (!sessions.length) {
+    const id = 's' + Date.now();
+    sessions = [{ id, title: '新会话', messages: [], updatedAt: Date.now() }];
+    currentId = id;
+  }
+  const cur = sessions.find(x => x.id === currentId);
+  if (!cur) currentId = sessions[0].id;
+  messages = (sessions.find(x => x.id === currentId) || {}).messages || [];
+}
+function openDrawer() { $('drawer').classList.add('open'); $('overlay').classList.add('open'); }
+function closeDrawer() { $('drawer').classList.remove('open'); $('overlay').classList.remove('open'); }
+
+// ---------- 地图 ----------
+function loadAmap() {
+  return new Promise((res, rej) => {
+    if (window.AMap) return res();
+    const s = document.createElement('script');
+    s.src = 'https://webapi.amap.com/maps?v=2.0&key=' + AMAP_KEY;
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+async function initMap() {
+  try { await loadAmap(); } catch (e) { return; }
+  map = new AMap.Map('map', { zoom: 4, center: [104.2, 35.9], resizeEnable: true });
+  drawMarkers(null, []);
+}
+
+async function drawMarkers(center, pois) {
+  if (!map) await initMap();
+  if (!map) return;
+  lastCenter = center; lastPois = pois || [];
+
+  map.remove(markers); markers = [];
+  const list = pois || [];
+
+  const originPt = originXY || myLoc || (center ? center.split(',').map(Number) : null);
+  if (originPt) {
+    const om = new AMap.Marker({
+      position: originPt, content: mk('起', 'origin'),
+      offset: new AMap.Pixel(-13, -26), draggable: true,
+      title: '起点（可拖动，松手重新搜索）', zIndex: 200,
+    });
+    om.on('dragend', e => {
+      originXY = [e.lnglat.getLng(), e.lnglat.getLat()];
+      $origin.value = originXY[0].toFixed(5) + ',' + originXY[1].toFixed(5);
+      save();
+      const lastUser = [...messages].reverse().find(m => m.role === 'user');
+      if (lastUser) ask(lastUser.content, true);
+    });
+    markers.push(om);
+  }
+  if (center) {
+    const c = center.split(',').map(Number);
+    const far = !originPt || Math.abs(c[0] - originPt[0]) + Math.abs(c[1] - originPt[1]) > 0.01;
+    if (far) markers.push(new AMap.Marker({
+      position: c, content: mk('搜', 'search'),
+      offset: new AMap.Pixel(-13, -26), title: '搜索中心', zIndex: 150,
+    }));
+  }
+  list.forEach((p, i) => {
+    if (!p.location) return;
+    const xy = p.location.split(',').map(Number);
+    const m = new AMap.Marker({
+      position: xy, content: mk(String(i + 1)),
+      offset: new AMap.Pixel(-13, -26), title: p.name, zIndex: 100,
+    });
+    m.on('click', () => {
+      const rows = ['<div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#111">'
+                    + p.name + '</div>'];
+      const sub = [];
+      if (p.type) sub.push(p.type);
+      if (p.rating != null) sub.push('⭐ ' + p.rating);
+      if (p.cost != null) sub.push('人均 ' + Math.round(p.cost));
+      if (p.distance != null) sub.push(p.distance + 'm');
+      if (sub.length) rows.push('<div style="color:#555;font-size:12px">' + sub.join(' · ') + '</div>');
+      if (myLoc) rows.push('<div style="color:#22c55e;font-size:12px;margin-top:2px">距你 '
+                           + fmtDist(haversine(myLoc, xy)) + '</div>');
+      if (p.address) rows.push('<div style="color:#888;font-size:11px;margin-top:2px">'
+                               + p.address + '</div>');
+      new AMap.InfoWindow({
+        content: '<div style="padding:4px 2px;min-width:180px;max-width:260px;'
+                 + 'line-height:1.5;color:#111;background:#fff">' + rows.join('') + '</div>',
+        offset: new AMap.Pixel(0, -30),
+      }).open(map, m.getPosition());
+    });
+    markers.push(m);
+  });
+  map.add(markers);
+  if (markers.length > 1) map.setFitView(markers, false, [60, 60, 60, 60]);
+}
+
+// ---------- 城市 ----------
+async function initCities() {
+  try {
+    const d = await (await fetch('/api/cities')).json();
+    cityMap = d.map || {};
+    const def = d.default || {};
+    const keys = Object.keys(cityMap);
+    $prov.innerHTML = keys.map(p => '<option value="' + p + '">' + p + '</option>').join('');
+    $prov.value = keys.includes(def.province) ? def.province : keys[0];
+    fillCities();
+    if (def.city && Array.from($city.options).some(o => o.value === def.city)) {
+      $city.value = def.city;
+    }
+  } catch (e) {
+    $prov.innerHTML = '<option value="陕西省">陕西省</option>';
+    $city.innerHTML = '<option value="西安市">西安市</option>';
+  }
+}
+function fillCities() {
+  $city.innerHTML = (cityMap[$prov.value] || [])
+    .map(c => '<option value="' + c + '">' + c + '</option>').join('');
+}
+$prov.addEventListener('change', fillCities);
+
+// ---------- 起点 ----------
+async function resolveOriginText() {
+  const txt = $origin.value.trim();
+  if (!txt) { originXY = null; save(); return; }
+  const m = txt.match(/^([\d.]+)\s*,\s*([\d.]+)$/);
+  if (m) { originXY = [parseFloat(m[1]), parseFloat(m[2])]; save(); return; }
+  if (txt === '我的位置' && myLoc) { originXY = myLoc.slice(); save(); return; }
+  try {
+    const d = await (await fetch('/api/geocode?place=' + encodeURIComponent(txt)
+                   + '&city=' + encodeURIComponent($city.value || ''))).json();
+    if (d.ok && d.location) {
+      originXY = d.location.split(',').map(Number); save();
+    } else {
+      originXY = null;
+      alert('找不到「' + txt + '」，换个说法或直接拖地图标记');
+    }
+  } catch (e) { originXY = null; }
+}
+$origin.addEventListener('blur', resolveOriginText);
+$reset.addEventListener('click', () => {
+  $origin.value = ''; originXY = null; save(); drawMarkers(lastCenter, lastPois);
+});
+
+// ---------- 定位 ----------
+$gps.addEventListener('click', () => {
+  if (!navigator.geolocation) { alert('浏览器不支持定位'); return; }
+  $gps.textContent = '定位中…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      myLoc = [pos.coords.longitude, pos.coords.latitude];
+      $gps.textContent = '📍 已定位';
+      $gps.classList.add('on');
+      if (!originXY) { originXY = myLoc.slice(); $origin.value = '我的位置'; }
+      save();
+      drawMarkers(lastCenter, lastPois);
+    },
+    err => {
+      const m = {1: '你拒绝了定位权限', 2: '拿不到位置', 3: '定位超时'};
+      $gps.textContent = '📍 定位';
+      alert('定位失败：' + (m[err.code] || err.message) + '\n可手动输入起点地名或拖动地图标记');
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+});
+
+// ---------- 渲染聊天 ----------
+function renderChat() {
+  $chat.innerHTML = messages.map(m => {
+    if (m.role === 'user') {
+      return '<div class="bubble me">' + md(m.content) + '</div>';
+    }
+    let inner = md(m.content || '');
+    if (m.pois && m.pois.length) {
+      inner += '<div style="margin-top:8px">' + m.pois.map((p, i) => {
+        const meta = [];
+        if (p.type) meta.push(p.type);
+        if (p.distance != null) meta.push(p.distance + 'm');
+        if (p.rating != null) meta.push('⭐' + p.rating);
+        if (p.cost != null) meta.push('人均' + Math.round(p.cost));
+        return '<div class="poi-line"><span class="n">' + (i + 1) + '</span>' +
+               p.name + ' <span style="color:#94a3b8;font-size:12px">' +
+               meta.join(' · ') + '</span></div>';
+      }).join('') + '</div>';
+    }
+    if (m.tool_log && m.tool_log.length) {
+      inner += '<details style="margin-top:8px"><summary style="cursor:pointer;color:#94a3b8;font-size:12px">' +
+               'Agent 做了什么（' + m.tool_log.length + ' 步 · ' + m.elapsed + 's）</summary>' +
+               '<div style="font-size:12px;color:#94a3b8;line-height:1.8;margin-top:6px">' +
+               m.tool_log.map(l => '<div>· ' + l + '</div>').join('') + '</div></details>';
+    }
+    return '<div class="bubble bot">' + inner + '</div>';
+  }).join('');
+  // 滚到底
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+// ---------- 请求 ----------
+async function ask(question, silent) {
+  if (!question.trim()) return;
+
+  // 保底：起点框有值但没坐标
+  const ot = $origin.value.trim();
+  if (ot && !originXY) {
+    if (ot === '我的位置' && myLoc) originXY = myLoc.slice();
+    else if (ot !== '我的位置') await resolveOriginText();
+  }
+
+  // 历史（不含本轮）
+  const history = messages
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .map(m => ({ role: m.role, content: m.content }))
+    .slice(-6);
+
+  if (!silent) {
+    messages.push({ role: 'user', content: question });
+    renderChat();
+  }
+  $go.disabled = true;
+  $spinner.classList.add('on');
+
+  const body = {
+    question, city: $city.value || '',
+    origin_name: $origin.value || '', history,
+  };
+  if (originXY) { body.origin_lat = originXY[1]; body.origin_lon = originXY[0]; }
+
+  try {
+    const r = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+
+    messages.push({
+      role: 'assistant', content: d.answer || '',
+      pois: d.pois || [], tool_log: d.tool_log || [],
+      elapsed: d.elapsed, location: d.location,
+    });
+    save();
+    renderSessions();
+    renderChat();
+    drawMarkers(d.location, d.pois || []);
+    lastCenter = d.location; lastPois = d.pois || [];
+  } catch (e) {
+    messages.push({ role: 'assistant', content: '请求失败：' + e.message });
+    renderChat();
+  } finally {
+    $go.disabled = false;
+    $spinner.classList.remove('on');
+    save();
+  }
+}
+
+// ---------- 事件 ----------
+$go.addEventListener('click', () => { ask($q.value); $q.value = ''; });
+$q.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); ask($q.value); $q.value = ''; }
+});
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => ask(c.dataset.q));
+});
+$('clearChat').addEventListener('click', () => {
+  if (!confirm('清空当前会话？')) return;
+  messages = [];
+  const s = sessions.find(x => x.id === currentId);
+  if (s) { s.messages = []; s.title = '新会话'; s.updatedAt = Date.now(); }
+  saveSessions(); renderSessions(); renderChat();
+  drawMarkers(null, []);
+});
+
+// ---------- 抽屉事件 ----------
+$('menu').addEventListener('click', openDrawer);
+$('closeDrawer').addEventListener('click', closeDrawer);
+$('overlay').addEventListener('click', closeDrawer);
+$('newChat').addEventListener('click', newSession);
+
+// ---------- 启动 ----------
+load();
+renderSessions();
+renderChat();
+initMap();
+initCities();
+if (messages.length) {
+  const last = [...messages].reverse().find(m => m.role === 'assistant' && m.location);
+  if (last) drawMarkers(last.location, last.pois || []);
+}
+</script>
+</body>
+</html>
