@@ -3,3 +3,6 @@ data/cache/
 __pycache__/
 *.pyc
 .venv/
+deploy/.deploy_env
+deploy/city-agent.tar.gz
+deploy/CityAgent-CA.crt

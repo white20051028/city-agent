@@ -111,6 +111,11 @@ def _request(path: str, retries: int = 3, **params) -> dict:
             last_err = info
             time.sleep(30.0)
             continue
+        # 服务端瞬时错误：重试（实测会偶发 30001，重试一次基本就过）
+        if "ENGINE_RESPONSE" in info or data.get("infocode") == "30001":
+            last_err = info
+            time.sleep(1.5)
+            continue
         # 其他错误：直接抛，不浪费配额
         if data.get("status") != "1":
             raise RuntimeError(f"高德返回错误: {info} ({data.get('infocode')})")

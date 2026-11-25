@@ -469,9 +469,22 @@ $gps.addEventListener('click', () => {
       drawMarkers(lastCenter, lastPois);
     },
     err => {
-      const m = {1: '你拒绝了定位权限', 2: '拿不到位置', 3: '定位超时'};
       $gps.textContent = '📍 定位';
-      alert('定位失败：' + (m[err.code] || err.message) + '\n可手动输入起点地名或拖动地图标记');
+      let msg = '';
+      if (err.code === 1) {
+        msg = '定位权限被拒绝了。\n\n' +
+              'Android 修复：\n' +
+              '① 浏览器地址栏左边点锁图标 → 网站设置 → 位置 → 允许\n' +
+              '② 或：手机设置 → 应用 → Chrome → 权限 → 位置 → 允许\n' +
+              '③ 刷新页面再点定位\n\n' +
+              '也可以直接用下面的「起点」输入框打地名，或拖动地图上的橙色标记。';
+      } else if (err.code === 2) {
+        msg = '拿不到位置信息（可能没开 GPS）。\n\n' +
+              '打开手机定位服务后重试，或直接输入起点地名。';
+      } else {
+        msg = '定位超时。\n\n换个网络或直接输入起点地名。';
+      }
+      alert(msg);
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
   );
@@ -512,11 +525,17 @@ function renderChat() {
 async function ask(question, silent) {
   if (!question.trim()) return;
 
-  // 保底：起点框有值但没坐标
-  const ot = $origin.value.trim();
+  // 保底 1：起点框有值但没坐标 → 重新解析
+  let ot = $origin.value.trim();
   if (ot && !originXY) {
     if (ot === '我的位置' && myLoc) originXY = myLoc.slice();
     else if (ot !== '我的位置') await resolveOriginText();
+  }
+  // 保底 2：起点完全为空 + 没定位 → 用当前城市名当起点
+  // （后端会用城市中心兜底，至少能给出结果，不是「搜不到」）
+  if (!ot && !originXY && $city.value) {
+    $origin.value = $city.value;
+    ot = $city.value;
   }
 
   // 历史（不含本轮）

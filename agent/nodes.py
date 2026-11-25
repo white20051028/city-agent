@@ -135,21 +135,55 @@ def resolve(state: AgentState) -> dict:
                                + (f" · {district}" if district else "")],
         }
 
+    # **name 为空时不要直接返回**：用户可能只是没提地名
+    # （手机端没定位、只点「附近两小时能去哪玩」），
+    # 这时候应该用 user_city 的城市中心兜底，而不是让 search 拿不到坐标。
     if not name:
+        fallback_city = state.get("user_city") or "西安市"
+        try:
+            place = amap.geocode(fallback_city)
+        except RuntimeError:
+            place = None
+        if place:
+            return {
+                "location": place["location"],
+                "adcode": place.get("adcode") or "",
+                "district": place.get("district") or "",
+                "tool_log": log + [f"定位兜底：用「{fallback_city}」城市中心"
+                                   f"（用户没提具体位置）"],
+            }
         return {"location": None, "tool_log": log + ["定位：没有地点信息"]}
 
     # 城市约束优先级：用户选的 > 意图解析出的 > 空
     # **必须有城市**：实测「骊山校区」不带城市会匹配到乌鲁木齐的「骊山」。
     city = state.get("user_city") or state.get("city") or ""
-    place = amap.geocode(name, city=city or None)
+    try:
+        place = amap.geocode(name, city=city or None)
+    except RuntimeError as e:
+        # 高德挂了不该让整个请求 500，降级到城市中心
+        log = log + [f"地名查不到（{e}），改用城市中心"]
+        place = None
 
     # 兜底：用地点名 + 城市再试一次
     if not place and city:
-        place = amap.geocode(f"{city}{name}", city=None)
+        try:
+            place = amap.geocode(f"{city}{name}", city=None)
+        except RuntimeError:
+            place = None
 
-    # 再兜底：用城市中心
+    # 兜底 3：用城市中心（用户没说具体位置时，按城市给推荐）
     if not place and city:
         place = amap.geocode(city)
+
+    # 兜底 4：连城市都没有，用省里的默认城市
+    if not place:
+        fallback_city = state.get("user_city") or "西安市"
+        try:
+            place = amap.geocode(fallback_city)
+        except RuntimeError:
+            place = None
+        if place:
+            log = log + [f"定位兜底：用「{fallback_city}」城市中心"]
 
     if not place:
         return {"location": None, "tool_log": log + [f"定位失败：{name}"]}

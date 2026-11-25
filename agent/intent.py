@@ -69,17 +69,66 @@ def _client() -> OpenAI:
     return OpenAI(api_key=key, base_url="https://api.deepseek.com")
 
 
+# 意图词：出现这些词说明新问题自带意图，不需要靠历史补全
+INTENT_WORDS = (
+    "吃", "饭", "餐厅", "美食", "小吃",
+    "喝", "奶茶", "咖啡", "饮料",
+    "景点", "玩", "逛", "看看", "旅游", "古迹",
+    "住", "酒店", "宾馆", "住宿",
+    "娱乐", "电影", "唱歌", "ktv", "KTV",
+)
+
+# 补充型短语：出现这些说明是在延续上一轮
+FOLLOWUP_WORDS = ("再来", "换一个", "另一个", "还有", "呢？", "呢", "那个", "这个",
+                  "是的", "对", "好的", "安静点", "便宜点", "贵一点", "近一点")
+
+
+def is_self_contained(question: str) -> bool:
+    """判断这个问题是不是「自带完整意图」。
+
+    自带完整意图 → 不拼历史（避免上一轮的意图污染这一轮）
+
+    规则（按优先级）：
+      ① 有「补充型修饰词」（安静点/便宜点/再来一个/那个）→ 补充，要拼
+         即使是「安静点的餐厅」——它是在上一轮基础上加条件
+      ② 没有补充词但有意图词（吃/玩/景点）→ 独立，不拼
+      ③ 都没有（「安静点的」这种短句）→ 补充，要拼
+
+    实测教训：
+      第 1 轮「附近有什么好吃的」+ 第 2 轮「附近能去哪玩」
+      如果总拼，模型会把第 2 轮判成 eat，继续返回餐厅
+    """
+    q = question.strip()
+    if len(q) < 5:
+        return False
+
+    # ① 补充词优先级最高
+    if any(w in q for w in FOLLOWUP_WORDS):
+        return False
+
+    # ② 有意图词 → 独立
+    return any(w in q for w in INTENT_WORDS)
+
+
 def build_effective_query(question: str, history: list[dict] | None,
                            max_turns: int = 3) -> str:
-    """把多轮历史拼成一句完整意图。
+    """把多轮历史拼成一句完整意图。**只对补充型问题拼。**
 
-    **为什么拼而不是保留 state**：反问后用户只说「安静点的餐厅」，
-    单独理解不了。拼上前面的话「纪念日，人均150，安静点」就清楚了。
-    拼接比重放整条图简单，而且每轮都是完整理解，不会带偏。
+    **为什么不总是拼**：实测踩过坑——
+      第 1 轮「附近有什么好吃的」→ 第 2 轮「附近能去哪玩」
+      拼成「附近有什么好吃的；附近能去哪玩」
+      模型看到「好吃的」在前面，判成 eat，第 2 轮还是返回餐厅
+
+    所以：新问题自带意图词（吃/玩/景点）→ 当新话题，**不拼**
+          新问题是「安静点的」「那个呢」这种 → 补充，**拼**
 
     max_turns 限制：只取最近 3 条用户消息，太长会把旧话题带进来。
     """
     if not history:
+        return question
+
+    # 自带完整意图 → 新话题，不拼历史
+    if is_self_contained(question):
         return question
 
     users = [h.get("content", "") for h in history if h.get("role") == "user"]
