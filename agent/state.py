@@ -40,6 +40,7 @@ class AgentState(TypedDict, total=False):
     origin_lat: float | None # 用户手动设定的起点纬度（拖动地图或输入地名）
     origin_lon: float | None # 用户手动设定的起点经度
     origin_name: str         # 起点的显示名（如「我的位置」「华清池」）
+    want_feature: bool       # 用户是否要「地方特色」（特色/本地/传统/民俗）
 
     # ---------- 输出 ----------
     answer: str              # 最终回答（Markdown）

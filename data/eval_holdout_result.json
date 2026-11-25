@@ -1,0 +1,191 @@
+{
+  "n": 10,
+  "passed": 9,
+  "pass_rate": 0.9,
+  "intent_accuracy": 0.9,
+  "poi_sufficiency": 1.0,
+  "details": [
+    {
+      "id": "V1",
+      "type": "验证-具体品类",
+      "question": "我在临潼，晚上想吃火锅",
+      "intent": "eat",
+      "expect_intent": "eat",
+      "poi_count": 5,
+      "expect_min_poi": 2,
+      "elapsed": 6.5,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": false,
+      "pois": [
+        "鸿运烧烤手提串串(东大街店)",
+        "国花骊宫坊",
+        "赵记老潼关肉夹馍(南大街店)"
+      ],
+      "answer_head": "**「临潼」附近 5 个吃的地方：**（现在是 23 点，已按夜间可去排序）  **1. 鸿运烧烤手提串串(东大街店)**　特色/地方风味餐厅 · 277m · 🚶步行 7 分钟 · 评分 4.2 ·"
+    },
+    {
+      "id": "V2",
+      "type": "验证-价格敏感",
+      "question": "附近有没有便宜的住宿",
+      "intent": "stay",
+      "expect_intent": "stay",
+      "poi_count": 5,
+      "expect_min_poi": 1,
+      "elapsed": 6.2,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": false,
+      "pois": [
+        "西安依骊旅舍民宿(华清宫店)",
+        "西安胧月客栈(华清宫店)",
+        "光遇民宿"
+      ],
+      "answer_head": "**「西安科技大学骊山校区」附近 5 个住宿：**（现在是 23 点，已按夜间可去排序）  **1. 西安依骊旅舍民宿(华清宫店)**　住宿服务相关 · 176m · 🚶步行 4 分钟 · 评分 4."
+    },
+    {
+      "id": "V3",
+      "type": "验证-天气相关",
+      "question": "下雨天带爸妈能去哪",
+      "intent": "play",
+      "expect_intent": "play",
+      "poi_count": 5,
+      "expect_min_poi": 1,
+      "elapsed": 1.0,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": false,
+      "pois": [
+        "魅KTV(西安钟楼众汇店)",
+        "关中庙街(华清宫店)",
+        "西大街夜市"
+      ],
+      "answer_head": "**「西安科技大学骊山校区」附近 5 个能去的地方：**（现在是 23 点，已按夜间可去排序）  **1. 魅KTV(西安钟楼众汇店)**　KTV · 259m · 🚶步行 6 分钟 · 评分 3.9"
+    },
+    {
+      "id": "V4",
+      "type": "验证-情感需求",
+      "question": "今天我生日，想找个有点仪式感的地方",
+      "intent": "eat",
+      "expect_intent": "eat",
+      "poi_count": 0,
+      "expect_min_poi": 0,
+      "elapsed": 1.2,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": true,
+      "pois": [],
+      "answer_head": "想找有仪式感的地方，是想吃顿好的还是想玩点什么？"
+    },
+    {
+      "id": "V5",
+      "type": "验证-指定地点",
+      "question": "华清池附近吃饭推荐",
+      "intent": "eat",
+      "expect_intent": "eat",
+      "poi_count": 5,
+      "expect_min_poi": 2,
+      "elapsed": 1.2,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": false,
+      "pois": [
+        "鸿运烧烤手提串串(东大街店)",
+        "国花骊宫坊",
+        "赵记老潼关肉夹馍(南大街店)"
+      ],
+      "answer_head": "**「华清池」附近 5 个吃的地方：**（现在是 23 点，已按夜间可去排序）  **1. 鸿运烧烤手提串串(东大街店)**　特色/地方风味餐厅 · 277m · 🚶步行 7 分钟 · 评分 4.2 "
+    },
+    {
+      "id": "V6",
+      "type": "验证-生活服务",
+      "question": "附近有能打印的地方吗",
+      "intent": "fun",
+      "expect_intent": "play",
+      "poi_count": 0,
+      "expect_min_poi": 0,
+      "elapsed": 1.0,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": true,
+      "pois": [],
+      "answer_head": "你是想找打印店，还是想找吃饭、景点或娱乐的地方？"
+    },
+    {
+      "id": "V7",
+      "type": "验证-特色推荐",
+      "question": "带外地朋友玩，有啥陕北特色的",
+      "intent": "play",
+      "expect_intent": "travel",
+      "poi_count": 5,
+      "expect_min_poi": 1,
+      "elapsed": 1.0,
+      "intent_ok": false,
+      "poi_ok": true,
+      "clarified": false,
+      "pois": [
+        "临潼博物馆",
+        "华清坊",
+        "临潼县城遗址(唐昭应城夯土遗址)"
+      ],
+      "answer_head": "**「西安科技大学骊山校区」附近 5 个能去的地方：**（现在是 23 点，已按夜间可去排序）  **1. 临潼博物馆**　省级景点 · 293m · 🚶步行 7 分钟 · 评分 4.3 　　骊山街道"
+    },
+    {
+      "id": "V8",
+      "type": "验证-事实查询",
+      "question": "兵马俑门票多少钱",
+      "intent": "sight",
+      "expect_intent": "sight",
+      "poi_count": 5,
+      "expect_min_poi": 0,
+      "elapsed": 2.7,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": false,
+      "pois": [
+        "华清宫",
+        "临潼博物馆",
+        "明圣宫"
+      ],
+      "answer_head": "**「兵马俑」附近 5 个景点：**（现在是 23 点，已按夜间可去排序）  **1. 华清宫**　世界遗产 · 1109m · 🚶步行 30 分钟 · 🚲骑行 10 分钟 · 🚌公交 18 分钟 ·"
+    },
+    {
+      "id": "V9",
+      "type": "验证-生活需求",
+      "question": "附近有大一点的超市吗",
+      "intent": "play",
+      "expect_intent": "play",
+      "poi_count": 5,
+      "expect_min_poi": 1,
+      "elapsed": 1.0,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": false,
+      "pois": [
+        "魅KTV(西安钟楼众汇店)",
+        "关中庙街(华清宫店)",
+        "西大街夜市"
+      ],
+      "answer_head": "**「西安科技大学骊山校区」附近 5 个能去的地方：**（现在是 23 点，已按夜间可去排序）  **1. 魅KTV(西安钟楼众汇店)**　KTV · 259m · 🚶步行 6 分钟 · 评分 3.9"
+    },
+    {
+      "id": "V10",
+      "type": "验证-日常",
+      "question": "晚上十点还有啥能吃",
+      "intent": "eat",
+      "expect_intent": "eat",
+      "poi_count": 5,
+      "expect_min_poi": 2,
+      "elapsed": 1.6,
+      "intent_ok": true,
+      "poi_ok": true,
+      "clarified": false,
+      "pois": [
+        "鸿运烧烤手提串串(东大街店)",
+        "国花骊宫坊",
+        "赵记老潼关肉夹馍(南大街店)"
+      ],
+      "answer_head": "**「西安科技大学骊山校区」附近 5 个吃的地方：**（现在是 23 点，已按夜间可去排序）  **1. 鸿运烧烤手提串串(东大街店)**　特色/地方风味餐厅 · 277m · 🚶步行 7 分钟 · "
+    }
+  ]
+}

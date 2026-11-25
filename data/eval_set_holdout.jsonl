@@ -1,0 +1,10 @@
+{"id": "V1", "type": "验证-具体品类", "question": "我在临潼，晚上想吃火锅", "expect_intent": "eat", "expect_min_poi": 2, "note": "明确品类，应该出火锅店"}
+{"id": "V2", "type": "验证-价格敏感", "question": "附近有没有便宜的住宿", "expect_intent": "stay", "expect_min_poi": 1, "note": "价格敏感，应有结果"}
+{"id": "V3", "type": "验证-天气相关", "question": "下雨天带爸妈能去哪", "expect_intent": "play", "expect_min_poi": 1, "allow_clarify": true, "note": "下雨是隐式约束，系统未必能处理"}
+{"id": "V4", "type": "验证-情感需求", "question": "今天我生日，想找个有点仪式感的地方", "expect_intent": "eat", "expect_min_poi": 0, "allow_clarify": true, "note": "情感需求，反问也可以"}
+{"id": "V5", "type": "验证-指定地点", "question": "华清池附近吃饭推荐", "expect_intent": "eat", "expect_min_poi": 2, "note": "指定地点，应该精准"}
+{"id": "V6", "type": "验证-生活服务", "question": "附近有能打印的地方吗", "expect_intent": "play", "expect_min_poi": 0, "allow_clarify": true, "note": "非餐饮非景点，看看系统怎么处理"}
+{"id": "V7", "type": "验证-特色推荐", "question": "带外地朋友玩，有啥陕北特色的", "expect_intent": "travel", "expect_min_poi": 1, "allow_clarify": true, "note": "特色是抽象需求，能给出东西就行"}
+{"id": "V8", "type": "验证-事实查询", "question": "兵马俑门票多少钱", "expect_intent": "sight", "expect_min_poi": 0, "allow_clarify": true, "note": "事实查询，不是推荐——系统不该编价格"}
+{"id": "V9", "type": "验证-生活需求", "question": "附近有大一点的超市吗", "expect_intent": "play", "expect_min_poi": 1, "note": "生活需求，商场类应该能出"}
+{"id": "V10", "type": "验证-日常", "question": "晚上十点还有啥能吃", "expect_intent": "eat", "expect_min_poi": 2, "note": "夜间场景，之前测过类似的"}

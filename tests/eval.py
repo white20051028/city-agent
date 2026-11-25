@@ -40,6 +40,15 @@ def run_one(graph, case: dict) -> dict:
         "origin_name": "西安科技大学骊山校区",
     })
     pois = r.get("itinerary") or []
+    answer = r.get("answer") or ""
+
+    # **反问也算通过**：信息模糊时该问，不该硬猜（case 6 就是这种情况）
+    allow_clarify = case.get("allow_clarify", False)
+    is_clarify = allow_clarify and len(pois) == 0 and answer.strip() and "？" in answer
+
+    intent_ok = r.get("intent") == case["expect_intent"] or is_clarify
+    poi_ok = len(pois) >= case["expect_min_poi"] or is_clarify
+
     return {
         "id": case["id"],
         "type": case["type"],
@@ -50,9 +59,10 @@ def run_one(graph, case: dict) -> dict:
         "has_location": all(p.get("location") for p in pois),
         "expect_intent": case["expect_intent"],
         "expect_min_poi": case["expect_min_poi"],
-        "intent_ok": r.get("intent") == case["expect_intent"],
-        "poi_ok": len(pois) >= case["expect_min_poi"],
-        "answer_head": (r.get("answer") or "")[:80].replace("\n", " "),
+        "intent_ok": intent_ok,
+        "poi_ok": poi_ok,
+        "clarified": bool(is_clarify),
+        "answer_head": answer[:80].replace("\n", " "),
     }
 
 
@@ -66,8 +76,9 @@ def main() -> None:
         res = run_one(graph, c)
         results.append(res)
         flags = ("✓" if res["intent_ok"] else "✗") + ("✓" if res["poi_ok"] else "✗")
+        mark = " [反问]" if res.get("clarified") else ""
         print(f"[{res['id']:>2}] {flags} intent={res['intent']:<7} "
-              f"POI={res['poi_count']:<2} {res['elapsed']:>4}s  {res['question'][:28]}")
+              f"POI={res['poi_count']:<2} {res['elapsed']:>4}s  {res['question'][:26]}{mark}")
 
     # ---------- 汇总 ----------
     n = len(results)

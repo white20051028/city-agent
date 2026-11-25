@@ -71,6 +71,13 @@ def intake(state: AgentState) -> dict:
         place_hint = "用户已定位的位置"
     parsed = parse_intent(state["user_input"], history=state.get("history"),
                           current_place=place_hint or None)
+
+    # 是否要「地方特色」：直接从原句判断（比让模型判断稳）
+    raw_q = state["user_input"] + " " + " ".join(
+        h.get("content", "") for h in (state.get("history") or [])
+        if h.get("role") == "user"
+    )
+    want_feature = any(w in raw_q for w in WANT_FEATURE_WORDS)
     log = state.get("tool_log", []) + [
         f"意图解析：{parsed['intent']}，地点「{parsed.get('location_name') or '未提'}」，"
         f"预算 {parsed.get('budget') or '不限'}"
@@ -98,7 +105,8 @@ def intake(state: AgentState) -> dict:
         "retry_count": 0,
         "excluded_ids": [],
         "now_hour": datetime.now().hour,
-        "tool_log": log,
+        "want_feature": want_feature,
+        "tool_log": log + ([f"识别到「地方特色」需求"] if want_feature else []),
         "answer": clarify_q if need_clarify else "",
     }
 
@@ -232,13 +240,41 @@ def search(state: AgentState) -> dict:
     intent = state.get("intent", "sight")
     log = state.get("tool_log", [])
 
-    # travel：整城关键字搜索，不用半径
+    # travel：整城/整区关键字搜索，不用半径
     if intent == "travel":
-        city = state.get("city") or state.get("location_name") or ""
-        if not city:
-            return {"pois": [], "tool_log": log + ["搜索：缺少城市名"]}
-        pois = amap.search_text("景点", city=city, poi_type=TYPE_CODE["sight"])
-        return {"pois": pois, "tool_log": log + [f"全城搜索「{city}」景点：{len(pois)} 条"]}
+        # **优先用区级**：用户说「来临潼玩」，搜「西安市」会出大唐不夜城（在市区）
+        # adcode 最准（临潼区=610115），其次 district 名字，最后才用 city
+        area = state.get("adcode") or state.get("district") or state.get("city") \
+            or state.get("location_name") or ""
+        if not area:
+            return {"pois": [], "tool_log": log + ["搜索：缺少行政区名"]}
+
+        # **按距离过滤**：区级搜索会返回整个区，但用户只关心出发点附近
+        max_dist = 30000   # 区级放宽到 30km（一个区可能很大）
+        raw = []
+        for page in (1, 2):
+            chunk = amap.search_text("景点", city=str(area),
+                                     poi_type=TYPE_CODE["sight"], page=page)
+            raw.extend(chunk)
+            if len(chunk) < 25:
+                break
+
+        loc = state.get("location")
+        if loc:
+            kept = [_with_distance(p, loc) for p in raw]
+            kept = [p for p in kept if p.get("distance") is not None
+                    and p["distance"] <= max_dist]
+        else:
+            kept = raw
+
+        label = state.get("district") or state.get("city") or area
+        return {
+            "pois": kept or raw,
+            "tool_log": log + [
+                f"全区域搜索「{label}」景点：{len(raw)} 条，"
+                f"{max_dist // 1000}km 内 {len(kept)} 条"
+            ],
+        }
 
     loc = state.get("location")
     if not loc:
@@ -402,8 +438,51 @@ def time_bonus(p: dict, now_hour: int) -> float:
     return 0.0
 
 
+# ---------------------------------------------------------------- 地方特色加权
+
+# 用户在问什么：出现这些词说明想要「本地特色」而不是随便逛逛
+WANT_FEATURE_WORDS: tuple[str, ...] = (
+    "特色", "本地", "当地", "传统", "民俗", "地道", "老字号", "非遗",
+    "文化", "人文", "陕北", "榆林特色",
+)
+
+# POI 命中这些词/类型 → 视为有地方特色
+POI_FEATURE_WORDS: tuple[str, ...] = (
+    "陕北", "黄土", "窑洞", "民歌", "羊肉", "面食", "剪纸", "腰鼓",
+    "民俗", "非遗", "老字号", "博物馆", "遗址", "古城", "老街", "旧居",
+    "纪念馆", "文化", "传统", "手工", "坊", "斋", "老店",
+)
+
+# 纯娱乐/商业场所：在「找特色」场景降权（它们不是地方文化）
+PURE_ENTERTAINMENT: tuple[str, ...] = (
+    "KTV", "ktv", "酒吧", "网吧", "台球", "棋牌", "电玩", "游戏",
+    "健身", "瑜伽", "美发", "理发", "洗浴", "足疗", "SPA",
+)
+
+
+def feature_bonus(p: dict, want_feature: bool) -> float:
+    """「地方特色」加权。只在用户明确要特色时生效。
+
+    +0.25  命中特色关键词（博物馆/老街/非遗/陕北…）
+    -0.20  纯娱乐场所（KTV/酒吧/网吧）
+     0.00  其他
+    """
+    if not want_feature:
+        return 0.0
+
+    name = p.get("name") or ""
+    typ = p.get("type") or ""
+    text = name + typ
+
+    if any(w in text for w in PURE_ENTERTAINMENT):
+        return -0.20
+    if any(w in text for w in POI_FEATURE_WORDS):
+        return 0.25
+    return 0.0
+
+
 def rank_score(p: dict, intent: str, budget: int | None, radius: int,
-               now_hour: int = 12) -> float:
+               now_hour: int = 12, want_feature: bool = False) -> float:
     """评分排序（**不叫质量排序**）：只按可量化维度加权。
 
     评分高 ≠ 质量好，只是「用户打分高」。
@@ -413,6 +492,7 @@ def rank_score(p: dict, intent: str, budget: int | None, radius: int,
     s += 0.2 * 1.0  # 类型已经在搜索时限定，这里给满
     s += landmark_bonus(p, intent)  # 地标加分 / 商场降权（权重随意图变）
     s += time_bonus(p, now_hour)    # 时间加权：晚上不推白天景点
+    s += feature_bonus(p, want_feature)  # 地方特色加权（只在要特色时生效）
 
     dist = p.get("distance")
     if isinstance(dist, (int, float)) and radius > 0:
@@ -523,7 +603,9 @@ def filter_pois(state: AgentState) -> dict:
         if filtered:
             pois = filtered
 
-    scored = sorted(pois, key=lambda p: rank_score(p, intent, budget, radius, now_hour),
+    want_feature = bool(state.get("want_feature"))
+    scored = sorted(pois, key=lambda p: rank_score(p, intent, budget, radius,
+                                                    now_hour, want_feature),
                     reverse=True)
 
     # 按主景区去重：华清宫-杨妃池 / 华清宫-五间厅 归到「华清宫」一个条目
@@ -555,7 +637,8 @@ def filter_pois(state: AgentState) -> dict:
     if len(top) < TARGET_RESULTS and (now_hour >= 19 or now_hour < 6):
         if len(top) < TARGET_RESULTS:
             # 用白天的权重重排（不加夜间惩罚）
-            scored2 = sorted(pois, key=lambda p: rank_score(p, intent, budget, radius, 12),
+            scored2 = sorted(pois, key=lambda p: rank_score(p, intent, budget, radius, 12,
+                                                            want_feature),
                              reverse=True)
             if intent in ("sight", "play", "travel"):
                 scored2 = dedupe_by_main_spot(scored2)

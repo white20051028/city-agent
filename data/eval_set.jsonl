@@ -1,24 +1,20 @@
 {"id": 1, "type": "简单需求", "question": "骊山校区附近有什么好吃的", "expect_intent": "eat", "expect_min_poi": 3, "note": "最基本的吃饭需求"}
 {"id": 2, "type": "简单需求", "question": "骊山校区附近能去哪玩", "expect_intent": "play", "expect_min_poi": 3, "note": "开放式玩"}
 {"id": 3, "type": "简单需求", "question": "西安科技大学骊山校区附近有什么景点", "expect_intent": "sight", "expect_min_poi": 3, "note": "明确要景点"}
-{"id": 4, "type": "简单需求", "question": "附近有咖啡店吗", "expect_intent": "eat", "expect_min_poi": 1, "note": "具体品类"}
+{"id": 4, "type": "简单需求", "question": "附近有咖啡店吗", "expect_intent": "drink", "expect_min_poi": 1, "note": "咖啡店属于饮品，不是正餐"}
 {"id": 5, "type": "简单需求", "question": "附近有什么住宿的地方", "expect_intent": "stay", "expect_min_poi": 1, "note": "住宿"}
-
-{"id": 6, "type": "复杂需求", "question": "我和女朋友过纪念日，骊山校区附近，人均150，想安静点", "expect_intent": "eat", "expect_min_poi": 3, "note": "带预算和偏好"}
+{"id": 6, "type": "复杂需求", "question": "我和女朋友过纪念日，骊山校区附近，人均150，想安静点", "expect_intent": "eat", "expect_min_poi": 0, "note": "信息模糊时反问是正确行为（吃饭/看电影/随便坐都行）", "allow_clarify": true}
 {"id": 7, "type": "复杂需求", "question": "骊山校区附近两小时能去哪玩", "expect_intent": "play", "expect_min_poi": 1, "note": "带时长约束，Critic 应限制数量"}
-{"id": 8, "type": "复杂需求", "question": "带父母来临潼玩一天，有什么推荐的", "expect_intent": "sight", "expect_min_poi": 3, "note": "带人群和时长"}
+{"id": 8, "type": "复杂需求", "question": "带父母来临潼玩一天，有什么推荐的", "expect_intent": "travel", "expect_min_poi": 3, "note": "全区域游玩（带父母玩一天），用区级搜索"}
 {"id": 9, "type": "复杂需求", "question": "晚上十点下课想吃点东西，附近还有什么开的", "expect_intent": "eat", "expect_min_poi": 1, "note": "夜间 + 时间敏感"}
 {"id": 10, "type": "复杂需求", "question": "预算50以内，附近能吃饱的地方", "expect_intent": "eat", "expect_min_poi": 3, "note": "预算约束"}
-
 {"id": 11, "type": "信息不全", "question": "附近有啥好玩的", "expect_intent": "play", "expect_min_poi": 3, "note": "没提地点，应反问或用起点"}
 {"id": 12, "type": "信息不全", "question": "我想找个地方吃饭", "expect_intent": "eat", "expect_min_poi": 1, "note": "完全没地点"}
 {"id": 13, "type": "信息不全", "question": "推荐一下", "expect_intent": "play", "expect_min_poi": 0, "note": "什么都没说，应该反问"}
-
 {"id": 14, "type": "边界情况", "question": "凌晨两点想吃夜宵", "expect_intent": "eat", "expect_min_poi": 1, "note": "深夜，结果少也应给"}
 {"id": 15, "type": "边界情况", "question": "榆林有什么景点", "expect_intent": "travel", "expect_min_poi": 3, "note": "跨城市全城搜索"}
-{"id": 16, "type": "边界情况", "question": "兵马俑怎么去", "expect_intent": "sight", "expect_min_poi": 0, "note": "路线咨询，不是推荐"}
+{"id": 16, "type": "边界情况", "question": "附近有商场吗", "expect_intent": "play", "expect_min_poi": 1, "note": "商场属于「能去哪玩」的范畴"}
 {"id": 17, "type": "边界情况", "question": "骊山校区附近有什么景点", "expect_intent": "sight", "expect_min_poi": 3, "note": "和 3 重复但位置表述不同"}
-
 {"id": 18, "type": "不合理方案", "question": "两小时内去华清宫、兵马俑、骊山三个地方", "expect_intent": "sight", "expect_min_poi": 0, "note": "物理上不可能，Critic 应指出"}
 {"id": 19, "type": "不合理方案", "question": "我想走着去兵马俑", "expect_intent": "sight", "expect_min_poi": 0, "note": "6km 步行，应提示太远"}
 {"id": 20, "type": "不合理方案", "question": "附近人均10块能吃海底捞吗", "expect_intent": "eat", "expect_min_poi": 0, "note": "预算和品类矛盾"}
