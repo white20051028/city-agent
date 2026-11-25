@@ -172,13 +172,23 @@ pip install fastapi uvicorn openai mcp langgraph
 
 ### 2. 配置
 
-复制 `.env.example` 为 `.env`，填三个 key：
+复制 `.env.example` 为 `.env`，填五个 key：
 
 ```ini
 AMAP_KEY=<高德 Web 服务 key>
 AMAP_JS_KEY=<高德 Web 端 JS API key>
 DEEPSEEK_API_KEY=<DeepSeek key>
+TENCENT_ASR_SECRET_ID=<腾讯云 SecretId>
+TENCENT_ASR_SECRET_KEY=<腾讯云 SecretKey>
 ```
+
+> ⚠️ **密钥一律从 `.env` 读，永远不要硬编码进代码。**
+>
+> 我在开发时犯过这个错：测试脚本里直接写了腾讯云密钥，
+> 被 GitHub 的 Push Protection 拦下，而 Gitee 已经推成功——
+> 密钥泄露了一次，只能去腾讯云删掉重新生成。
+>
+> 现在所有脚本都走 `tools/asr.py` 里的 `_read_env()`，`.env` 在 `.gitignore` 里。
 
 **两个高德 key 不一样**：
 - `AMAP_KEY`：服务平台选「Web 服务」，服务端调用
