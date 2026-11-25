@@ -754,7 +754,18 @@ def compose(state: AgentState) -> dict:
 
     itin = state.get("itinerary", [])
     intent = state.get("intent", "sight")
-    place = state.get("location_name") or state.get("city") or ""
+
+    # place 的取值：明确地名 > 区名 > 当前定位 > 城市
+    # 用户定位在骊山校区时，说「【西安市】附近」不准确（他其实在临潼区）
+    location_name = (state.get("location_name") or "").strip()
+    if location_name:
+        place = location_name
+    elif state.get("district"):
+        place = state["district"]
+    elif (state.get("origin_name") or "") in ("我的位置", "") and state.get("origin_lat") is not None:
+        place = "当前定位"
+    else:
+        place = state.get("city") or ""
 
     if not itin:
         if intent == "travel":
@@ -783,7 +794,10 @@ def _compose_nearby(itin: list[dict], intent: str, place: str,
              "fun": "娱乐场所", "stay": "住宿", "drink": "喝东西的地方"}.get(intent, "地方")
 
     night = now_hour >= 19 or now_hour < 6
-    head = f"**「{place}」附近 {len(itin)} 个{label}：**"
+    if place == "当前定位":
+        head = f"**当前定位附近 {len(itin)} 个{label}：**"
+    else:
+        head = f"**「{place}」附近 {len(itin)} 个{label}：**"
     if night:
         head += f"（现在是 {now_hour} 点，已按夜间可去排序）"
     lines = [head, ""]

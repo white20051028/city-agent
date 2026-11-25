@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#0f172a">
 <title>城市探索 Agent</title>
 <link rel="manifest" href="/static/manifest.json">
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="城市探索">
 <style>
   :root {
     --bg: #0f172a; --card: #1e293b; --card-2: #273449;
@@ -41,6 +46,8 @@
     border: 1px solid var(--border); font-weight: 500;
   }
   button.ghost.on { color: var(--ok); border-color: var(--ok); }
+  button#mic.rec { color: #f87171; border-color: #f87171; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
   .label { color: var(--muted); font-size: 12px; margin: 0 0 4px; }
 
   /* 聊天区 */
@@ -181,6 +188,7 @@
 <div class="composer">
   <div class="row">
     <input id="q" type="text" placeholder="问点什么…（可以接着追问）" autocomplete="off">
+    <button class="ghost" id="mic" title="语音输入">🎤</button>
     <button id="go">发送</button>
     <button class="ghost" id="clearChat">清空</button>
   </div>
@@ -608,6 +616,111 @@ $('menu').addEventListener('click', openDrawer);
 $('closeDrawer').addEventListener('click', closeDrawer);
 $('overlay').addEventListener('click', closeDrawer);
 $('newChat').addEventListener('click', newSession);
+
+// ---------- 语音输入（腾讯云 ASR，不用浏览器自带的 WebSpeech）----------
+// **为什么不用 Web Speech API**：它底层调 Google，国内 Android 连不上，
+// 手机上点了没反应（实测）。改成录音 + 后端腾讯云 ASR。
+const $mic = $('mic');
+let mediaRec = null;
+let chunks = [];
+let recording = false;
+
+function setMicState(state) {
+  // state: idle / recording / uploading
+  $mic.classList.toggle('rec', state === 'recording');
+  $mic.textContent = state === 'recording' ? '⏹' : (state === 'uploading' ? '…' : '🎤');
+  $mic.disabled = state === 'uploading';
+  $q.placeholder = state === 'recording' ? '听录音中…再点一下结束'
+                  : state === 'uploading' ? '识别中…'
+                  : '问点什么…（可以接着追问）';
+}
+
+async function startRecording() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('这个浏览器不支持录音。\n\n请用 Chrome 或 Edge 打开。');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunks = [];
+    mediaRec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+    mediaRec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    mediaRec.onstop = async () => {
+      stream.getTracks().forEach(tr => tr.stop());
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      if (blob.size < 1000) { setMicState('idle'); return; }
+      await uploadAudio(blob);
+    };
+
+    mediaRec.start();
+    recording = true;
+    setMicState('recording');
+
+    // 最长录 20 秒（腾讯云限 60 秒，20 秒够说一句话了）
+    setTimeout(() => {
+      if (recording) { mediaRec.stop(); recording = false; }
+    }, 20000);
+  } catch (e) {
+    setMicState('idle');
+    if (e.name === 'NotAllowedError') {
+      alert('麦克风权限被拒绝。\n\n' +
+            '请点地址栏左边的锁图标 → 网站设置 → 麦克风 → 允许');
+    } else {
+      alert('录音启动失败：' + e.message);
+    }
+  }
+}
+
+function stopRecording() {
+  if (mediaRec && recording) {
+    recording = false;
+    mediaRec.stop();
+    setMicState('uploading');
+  }
+}
+
+async function uploadAudio(blob) {
+  try {
+    const r = await fetch('/api/asr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/webm' },
+      body: blob,
+    });
+    const d = await r.json();
+    setMicState('idle');
+
+    if (!d.ok) {
+      alert('识别失败：' + (d.error || '未知错误'));
+      return;
+    }
+    const text = (d.text || '').trim();
+    if (!text) {
+      $q.placeholder = '没听清，再说一次？';
+      setTimeout(() => setMicState('idle'), 1500);
+      return;
+    }
+    $q.value = text;
+    ask(text);
+    $q.value = '';
+  } catch (e) {
+    setMicState('idle');
+    alert('上传失败：' + e.message);
+  }
+}
+
+$mic.addEventListener('click', () => {
+  if (recording) stopRecording();
+  else startRecording();
+});
+
+// ---------- PWA ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .catch(e => console.warn('SW 注册失败:', e));
+  });
+}
 
 // ---------- 启动 ----------
 load();

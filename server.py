@@ -18,7 +18,7 @@ import sys
 import time
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT))
 
 from agent import geo  # noqa: E402
 from agent.graph import build_graph  # noqa: E402
-from tools import amap  # noqa: E402
+from tools import amap, asr  # noqa: E402
 
 
 def _read_env(name: str) -> str:
@@ -128,6 +128,36 @@ def geocode_endpoint(place: str, city: str = "") -> dict:
     return {"ok": True, "location": r["location"], "address": r.get("address")}
 
 
+@app.post("/api/asr")
+async def speech_to_text(request: Request) -> dict:
+    """语音识别：接收浏览器录的音频（raw body），返回文字。
+
+    腾讯云限制：≤60 秒，≤3MB。
+    前端录的是 webm，后端用 ffmpeg 转 wav 16k。
+    """
+    body = await request.body()
+    if not body:
+        return {"ok": False, "text": "", "error": "没有收到音频数据"}
+
+    # 从 Content-Type 判断源格式
+    ctype = request.headers.get("content-type", "audio/webm")
+    fmt = "webm"
+    if "wav" in ctype:
+        fmt = "wav"
+    elif "mp4" in ctype or "m4a" in ctype:
+        fmt = "m4a"
+    elif "ogg" in ctype:
+        fmt = "ogg"
+
+    import asyncio
+
+    # ffmpeg 是同步阻塞调用，扔到线程池避免卡住事件循环
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, asr.transcribe, body, fmt
+    )
+    return result
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
@@ -137,6 +167,22 @@ def health() -> dict:
 STATIC = ROOT / "static"
 if STATIC.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
+
+
+@app.get("/sw.js")
+def service_worker():
+    """Service Worker 必须在根路径 + 带 Service-Worker-Allowed 头，
+    否则 scope 只能是 /static/（浏览器限制）。
+    """
+    sw = STATIC / "sw.js"
+    if not sw.exists():
+        return HTMLResponse("// sw.js not found", status_code=404,
+                            media_type="application/javascript")
+    return HTMLResponse(
+        sw.read_text(encoding="utf-8"),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/")
