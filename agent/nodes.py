@@ -78,6 +78,7 @@ def intake(state: AgentState) -> dict:
         if h.get("role") == "user"
     )
     want_feature = any(w in raw_q for w in WANT_FEATURE_WORDS)
+    category_kw = extract_category(raw_q)
     log = state.get("tool_log", []) + [
         f"意图解析：{parsed['intent']}，地点「{parsed.get('location_name') or '未提'}」，"
         f"预算 {parsed.get('budget') or '不限'}"
@@ -106,7 +107,10 @@ def intake(state: AgentState) -> dict:
         "excluded_ids": [],
         "now_hour": datetime.now().hour,
         "want_feature": want_feature,
-        "tool_log": log + ([f"识别到「地方特色」需求"] if want_feature else []),
+        "category_kw": category_kw,
+        "tool_log": log
+        + ([f"识别到「地方特色」需求"] if want_feature else [])
+        + ([f"识别到具体品类「{category_kw}」，按关键词精确搜索"] if category_kw else []),
         "answer": clarify_q if need_clarify else "",
     }
 
@@ -281,6 +285,19 @@ def search(state: AgentState) -> dict:
         return {"pois": [], "tool_log": log + ["搜索：没有坐标"]}
 
     radius, cap = RADIUS.get(intent, (3000, 5000))
+
+    # **有具体品类就用 keywords 搜**：避免大类排序被近处的无关场所碾压
+    cat = state.get("category_kw") or ""
+    if cat:
+        pois = amap.search_around_keywords(loc, cat, radius=radius)
+        if pois:
+            return {
+                "pois": pois,
+                "radius_used": radius,
+                "tool_log": log + [f"按品类「{cat}」搜索：{radius}m 内 {len(pois)} 条"],
+            }
+        # 搜不到就退回大类搜索
+        log = log + [f"品类「{cat}」没搜到，退回大类搜索"]
 
     # sight：**按行政区关键字搜，不用周边搜索**
     # 周边搜索按距离排，返回的全是 200–900m 的小遗址、教堂；
@@ -479,6 +496,34 @@ def feature_bonus(p: dict, want_feature: bool) -> float:
     if any(w in text for w in POI_FEATURE_WORDS):
         return 0.25
     return 0.0
+
+
+# ---------------------------------------------------------------- 具体品类提取
+
+# 用户说了这些词 → 用 keywords 精确搜，而不是用 types 搜大类
+KNOWN_CATEGORIES = (
+    "KTV", "ktv", "卡拉OK", "酒吧", "网吧", "网咖", "电竞馆", "台球", "桌游",
+    "剧本杀", "密室", "电影院", "影城", "游戏厅", "电玩", "棋牌",
+    "健身房", "健身", "游泳", "瑜伽", "普拉提", "羽毛球", "篮球", "网球",
+    "美甲", "美发", "理发", "美容", "美睫", "按摩", "足疗", "洗浴",
+    "火锅", "烧烤", "日料", "韩餐", "西餐", "面馆", "米线", "麻辣烫",
+    "咖啡", "奶茶", "甜品", "蛋糕", "面包", "早餐",
+    "书店", "超市", "商场", "打印", "照相", "洗衣", "宠物",
+)
+
+
+def extract_category(question: str) -> str:
+    """从问句里提取具体品类关键词。
+
+    返回空字符串表示「用户没说具体品类，用大类搜」。
+
+    实测教训：问「找点儿KTV」如果只用 types=080000 搜体育休闲服务大类，
+    返回的是 126m 的体育场和 423m 的体育馆，KTV 一个没有（按距离碾压）。
+    """
+    for kw in KNOWN_CATEGORIES:
+        if kw in question:
+            return kw
+    return ""
 
 
 def rank_score(p: dict, intent: str, budget: int | None, radius: int,

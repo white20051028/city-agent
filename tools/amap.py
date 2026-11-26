@@ -208,6 +208,20 @@ def search_around(location: str, poi_type: str, radius: int = 2000,
     return [_poi_brief(p) for p in (data.get("pois") or [])]
 
 
+def search_around_keywords(location: str, keywords: str, radius: int = 2000,
+                           page: int = 1, sort: str = "1") -> list[dict]:
+    """周边搜索，但用 keywords（具体品类名）而不是 types（大类码）。
+
+    **为什么需要**：用户问「找点儿KTV」，如果只用 types=080000 搜体育休闲大类，
+    按距离排序返回的是 126m 的体育场——KTV 在 2km 外，排不进来。
+    用 keywords=KTV 能直接命中。
+    """
+    data = _request("place/around", location=location, keywords=keywords,
+                    radius=radius, offset=25, page=page, sortrule=sort,
+                    extensions="all")
+    return [_poi_brief(p) for p in (data.get("pois") or [])]
+
+
 def search_text(keywords: str, city: str, poi_type: str | None = None,
                 page: int = 1) -> list[dict]:
     """关键字搜索：全城范围，适合「XX 市有什么景点」这类问题。"""

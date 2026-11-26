@@ -110,6 +110,68 @@ def ask(req: AskRequest) -> dict:
     }
 
 
+@app.post("/api/feedback")
+def feedback(payload: dict) -> dict:
+    """收集用户反馈。
+
+    为什么要带上下文：用户说「这个回答不对」时，光有这句话没法排查，
+    必须知道他问的什么、我们答的什么、中间 Agent 做了什么。
+    """
+    import datetime
+    import json
+
+    record = {
+        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "comment": (payload.get("comment") or "").strip()[:2000],
+        "question": (payload.get("question") or "")[:500],
+        "answer": (payload.get("answer") or "")[:3000],
+        "history": payload.get("history") or [],
+        "tool_log": payload.get("tool_log") or [],
+        "version": payload.get("version") or "",
+        "intent": payload.get("intent") or "",
+        "ua": (payload.get("ua") or "")[:200],
+    }
+
+    fb = ROOT / "data" / "feedback.jsonl"
+    fb.parent.mkdir(parents=True, exist_ok=True)
+    with fb.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return {"ok": True}
+
+
+@app.get("/api/version")
+def version() -> dict:
+    """返回代码版本，前端显示在页面底部。
+
+    用文件的 mtime 当版本号——改了就变，比手写 APP_VERSION 可靠
+    （之前手写版本号忘了 bump，导致误判「部署没生效」）。
+    """
+    import datetime
+    import subprocess
+
+    files = ["server.py", "agent/nodes.py", "agent/graph.py",
+             "static/index.html", "tools/amap.py"]
+    latest = 0.0
+    for f in files:
+        fp = ROOT / f
+        if fp.exists():
+            latest = max(latest, fp.stat().st_mtime)
+
+    ts = datetime.datetime.fromtimestamp(latest).strftime("%m-%d %H:%M")
+
+    sha = ""
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(ROOT), capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+    except Exception:  # noqa: BLE001
+        pass
+
+    return {"version": ts, "sha": sha}
+
+
 @app.get("/api/cities")
 def cities() -> dict:
     """省市表 + 默认城市（IP 定位，失败 fallback 到西安市）。"""

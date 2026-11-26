@@ -6,7 +6,7 @@
  *   · /api/ask：**永不缓存**（每次都要新结果）
  */
 
-const CACHE = "city-agent-v2";
+const CACHE = "city-agent-v6";
 const STATIC = [
   "/static/icon-192.png",
   "/static/icon-512.png",

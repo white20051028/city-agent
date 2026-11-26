@@ -140,11 +140,81 @@
   }
   .composer .row { margin-bottom: 0; }
 
-  .spinner { display: none; color: var(--muted); font-size: 13px; padding: 8px 0; }
-  .spinner.on { display: block; }
   .err { color: #f87171; }
-  .poi-line { font-size: 13px; padding: 3px 0; }
-  .poi-line .n { color: var(--accent); font-weight: 700; margin-right: 4px; }
+  /* 结果卡片（替代纯文本行） */
+  .poi-card {
+    display: flex; gap: 10px; padding: 10px 12px;
+    background: var(--card-2); border-radius: 10px; margin-bottom: 8px;
+    cursor: pointer; transition: background .15s;
+  }
+  .poi-card:active { background: #334155; }
+  .poi-rank {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #0b1220;
+    font-weight: 700; text-align: center; line-height: 26px;
+    flex-shrink: 0; font-size: 13px;
+  }
+  .poi-body { flex: 1; min-width: 0; }
+  .poi-title { font-weight: 600; font-size: 14px; }
+  .poi-tags { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .poi-row { font-size: 12px; margin-top: 3px; }
+  .poi-row .rate { color: #fbbf24; }
+  .poi-row .near { color: var(--ok); }
+  .poi-sub { color: #64748b; font-size: 11px; margin-top: 2px; }
+
+  /* 反馈按钮 */
+  .fb-btn {
+    display: inline-block; margin-top: 8px; padding: 4px 10px;
+    font-size: 12px; color: var(--muted); cursor: pointer;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: transparent;
+  }
+  .fb-btn:active { background: var(--card-2); }
+
+  /* 反馈弹窗 */
+  #fbMask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.65);
+    display: none; z-index: 2000; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #fbMask.on { display: flex; }
+  #fbBox {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px; width: 100%; max-width: 420px;
+  }
+  #fbBox h3 { margin: 0 0 10px; font-size: 16px; }
+  #fbBox textarea {
+    width: 100%; min-height: 100px; padding: 10px; font-size: 14px;
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; resize: vertical; font-family: inherit; outline: none;
+  }
+  #fbBox textarea:focus { border-color: var(--accent); }
+  #fbBox .hint { color: var(--muted); font-size: 11.5px; margin-top: 6px; line-height: 1.6; }
+  #fbBox .btns { display: flex; gap: 8px; margin-top: 12px; }
+  #fbBox .btns button { flex: 1; }
+
+  /* 快捷追问 */
+  .followups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .followup {
+    padding: 5px 11px; border-radius: 999px; font-size: 12.5px;
+    background: rgba(56, 189, 248, .12); color: var(--accent);
+    border: 1px solid rgba(56, 189, 248, .35); cursor: pointer;
+  }
+  .followup:active { background: rgba(56, 189, 248, .25); }
+
+  /* 加载态：带进度点 */
+  .spinner {
+    display: none; color: var(--muted); font-size: 13px;
+    padding: 10px 0; align-items: center; gap: 8px;
+  }
+  .spinner.on { display: flex; }
+  .spinner .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    animation: blink 1.2s infinite;
+  }
+  .spinner .dot:nth-child(2) { animation-delay: .2s; }
+  .spinner .dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
 </style>
 </head>
 <body>
@@ -176,13 +246,34 @@
 
 <div id="chat"></div>
 <div id="map"></div>
-<div id="spinner" class="spinner">Agent 正在思考…</div>
+<div id="spinner" class="spinner">
+  <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+  <span id="spinnerText">正在理解你的需求…</span>
+</div>
 
 <div class="chips">
   <span class="chip" data-q="附近有什么好吃的">附近吃什么</span>
   <span class="chip" data-q="附近能去哪玩">附近能去哪玩</span>
   <span class="chip" data-q="附近两小时能去哪玩">两小时能去哪</span>
   <span class="chip" data-q="附近有什么喝的">附近有什么喝的</span>
+</div>
+
+<div id="verline" style="text-align:center;color:#475569;font-size:11px;
+     padding:4px 0 8px;"></div>
+
+<div id="fbMask">
+  <div id="fbBox">
+    <h3>📝 反馈</h3>
+    <textarea id="fbText" placeholder="哪里不对？可以具体说，比如：&#10;· 推荐的店不存在 / 已经关门了&#10;· 答非所问 / 漏了关键信息&#10;· 分类错了（我问的是 KTV，给了体育馆）"></textarea>
+    <div class="hint">
+      提交时会自动带上：<b>你问的问题、这条回答、Agent 的完整调用链、当前版本号</b>。<br>
+      不收集任何个人信息。
+    </div>
+    <div class="btns">
+      <button class="ghost" id="fbCancel">取消</button>
+      <button id="fbSubmit">提交</button>
+    </div>
+  </div>
 </div>
 
 <div class="composer">
@@ -210,6 +301,31 @@ let messages = [];       // 当前会话的消息
 let sessions = [];       // [{id, title, messages, updatedAt}]
 let currentId = null;
 let lastPois = [], lastCenter = null;
+let loadTimer = null;
+
+// 加载时的文案轮播（后端是同步返回的，所以这是「假进度」，
+// 但比一个静止的转圈好——用户能感知到有事情在发生）
+const LOADING_STEPS = [
+  '正在理解你的需求…',
+  '正在搜索附近的地方…',
+  '正在按评分和预算排序…',
+  '正在复核时间够不够…',
+];
+function startLoading() {
+  let i = 0;
+  const el = document.getElementById('spinnerText');
+  if (el) el.textContent = LOADING_STEPS[0];
+  $spinner.classList.add('on');
+  clearInterval(loadTimer);
+  loadTimer = setInterval(() => {
+    i = (i + 1) % LOADING_STEPS.length;
+    if (el) el.textContent = LOADING_STEPS[i];
+  }, 2200);
+}
+function stopLoading() {
+  clearInterval(loadTimer);
+  $spinner.classList.remove('on');
+}
 
 // ---------- 工具 ----------
 function haversine(a, b) {
@@ -506,16 +622,29 @@ function renderChat() {
     }
     let inner = md(m.content || '');
     if (m.pois && m.pois.length) {
-      inner += '<div style="margin-top:8px">' + m.pois.map((p, i) => {
-        const meta = [];
-        if (p.type) meta.push(p.type);
-        if (p.distance != null) meta.push(p.distance + 'm');
-        if (p.rating != null) meta.push('⭐' + p.rating);
-        if (p.cost != null) meta.push('人均' + Math.round(p.cost));
-        return '<div class="poi-line"><span class="n">' + (i + 1) + '</span>' +
-               p.name + ' <span style="color:#94a3b8;font-size:12px">' +
-               meta.join(' · ') + '</span></div>';
-      }).join('') + '</div>';
+      inner += m.pois.map((p, i) => {
+        const tags = [];
+        if (p.type) tags.push(p.type);
+        if (p.distance != null) tags.push(p.distance + 'm');
+
+        const rows = [];
+        if (p.rating != null) rows.push('<span class="rate">⭐ ' + p.rating + '</span>');
+        if (p.cost != null) rows.push('人均 ' + Math.round(p.cost));
+        if (myLoc && p.location) {
+          const xy2 = p.location.split(',').map(Number);
+          rows.push('<span class="near">距你 ' + fmtDist(haversine(myLoc, xy2)) + '</span>');
+        }
+        if (p.travel && p.travel.walk) rows.push('🚶 ' + p.travel.walk + ' 分钟');
+
+        return '<div class="poi-card" data-idx="' + i + '">' +
+          '<div class="poi-rank">' + (i + 1) + '</div>' +
+          '<div class="poi-body">' +
+            '<div class="poi-title">' + p.name + '</div>' +
+            '<div class="poi-tags">' + tags.join(' · ') + '</div>' +
+            (rows.length ? '<div class="poi-row">' + rows.join(' · ') + '</div>' : '') +
+            (p.address ? '<div class="poi-sub">' + p.address + '</div>' : '') +
+          '</div></div>';
+      }).join('');
     }
     if (m.tool_log && m.tool_log.length) {
       inner += '<details style="margin-top:8px"><summary style="cursor:pointer;color:#94a3b8;font-size:12px">' +
@@ -523,8 +652,31 @@ function renderChat() {
                '<div style="font-size:12px;color:#94a3b8;line-height:1.8;margin-top:6px">' +
                m.tool_log.map(l => '<div>· ' + l + '</div>').join('') + '</div></details>';
     }
+    if (m.pois && m.pois.length) {
+      inner += '<div class="followups">' +
+        ['换一批', '便宜点', '近一点', '还有别的吗'].map(function (x) {
+          return '<span class="followup" data-q="' + x + '">' + x + '</span>';
+        }).join('') + '</div>';
+    }
+    // 每条回答都给反馈入口（带消息索引，提交时能找回上下文）
+    inner += '<div><span class="fb-btn" data-mi="' + messages.indexOf(m) + '">📝 反馈</span></div>';
     return '<div class="bubble bot">' + inner + '</div>';
   }).join('');
+
+  // 点卡片 → 地图定位到那个点
+  // 注意：$chat.innerHTML 每次重建，所以事件要在这里重新绑
+  document.querySelectorAll('.poi-card').forEach(function (el) {
+    el.addEventListener('click', function () {
+      const botMsgs = messages.filter(m => m.role === 'assistant' && m.pois && m.pois.length);
+      const latest = botMsgs[botMsgs.length - 1];
+      if (!latest || !map) return;
+      const p = latest.pois[Number(el.dataset.idx)];
+      if (p && p.location) {
+        map.setZoomAndCenter(16, p.location.split(',').map(Number));
+      }
+    });
+  });
+
   // 滚到底
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
@@ -557,7 +709,7 @@ async function ask(question, silent) {
     renderChat();
   }
   $go.disabled = true;
-  $spinner.classList.add('on');
+  startLoading();
 
   const body = {
     question, city: $city.value || '',
@@ -585,11 +737,21 @@ async function ask(question, silent) {
     drawMarkers(d.location, d.pois || []);
     lastCenter = d.location; lastPois = d.pois || [];
   } catch (e) {
-    messages.push({ role: 'assistant', content: '请求失败：' + e.message });
+    let msg;
+    if (e.message.indexOf('500') >= 0) {
+      msg = '服务端出错了。可能是高德接口临时超时，**再点一次**通常就好了。\n\n' +
+            '（如果连续几次都这样，告诉我，我去看服务器日志）';
+    } else if (e.message.indexOf('Failed to fetch') >= 0 ||
+               e.message.indexOf('NetworkError') >= 0) {
+      msg = '网络断了。\n\n检查一下手机网络，或者刷新页面重试。';
+    } else {
+      msg = '请求失败：' + e.message + '\n\n重试一次试试。';
+    }
+    messages.push({ role: 'assistant', content: msg });
     renderChat();
   } finally {
     $go.disabled = false;
-    $spinner.classList.remove('on');
+    stopLoading();
     save();
   }
 }
@@ -601,6 +763,11 @@ $q.addEventListener('keydown', e => {
 });
 document.querySelectorAll('.chip').forEach(c => {
   c.addEventListener('click', () => ask(c.dataset.q));
+});
+// 快捷追问：动态生成的，用事件委托
+$chat.addEventListener('click', function (e) {
+  const f = e.target.closest('.followup');
+  if (f && f.dataset.q) ask(f.dataset.q);
 });
 $('clearChat').addEventListener('click', () => {
   if (!confirm('清空当前会话？')) return;
@@ -721,6 +888,90 @@ if ('serviceWorker' in navigator) {
       .catch(e => console.warn('SW 注册失败:', e));
   });
 }
+
+// ---------- 反馈 ----------
+let fbTargetIdx = -1;
+
+function openFeedback(msgIdx) {
+  fbTargetIdx = msgIdx;
+  document.getElementById('fbText').value = '';
+  document.getElementById('fbMask').classList.add('on');
+  setTimeout(() => document.getElementById('fbText').focus(), 100);
+}
+function closeFeedback() {
+  document.getElementById('fbMask').classList.remove('on');
+}
+
+async function submitFeedback() {
+  const comment = document.getElementById('fbText').value.trim();
+  if (!comment) { alert('写点什么再提交吧'); return; }
+
+  // 找回被反馈的那条回答
+  const msg = messages[fbTargetIdx] || {};
+  // 它的上一个 user 消息就是问题
+  let question = '';
+  for (let i = fbTargetIdx - 1; i >= 0; i--) {
+    if (messages[i] && messages[i].role === 'user') { question = messages[i].content; break; }
+  }
+
+  let ver = '';
+  try {
+    const v = await (await fetch('/api/version')).json();
+    ver = v.version || '';
+  } catch (e) {}
+
+  const body = {
+    comment: comment,
+    question: question,
+    answer: msg.content || '',
+    history: messages.slice(Math.max(0, fbTargetIdx - 6), fbTargetIdx + 1)
+                   .map(m => ({ role: m.role, content: m.content })),
+    tool_log: msg.tool_log || [],
+    version: ver,
+    ua: navigator.userAgent,
+  };
+
+  try {
+    const r = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    closeFeedback();
+    // 轻提示
+    const tip = document.createElement('div');
+    tip.textContent = '✅ 收到，谢谢！';
+    tip.style.cssText = 'position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);'
+      + 'background:#22c55e;color:#0b1220;padding:10px 20px;border-radius:10px;'
+      + 'font-weight:600;z-index:3000;font-size:14px';
+    document.body.appendChild(tip);
+    setTimeout(() => tip.remove(), 1800);
+  } catch (e) {
+    alert('提交失败：' + e.message + '\n再试一次？');
+  }
+}
+
+document.getElementById('fbCancel').addEventListener('click', closeFeedback);
+document.getElementById('fbMask').addEventListener('click', function (e) {
+  if (e.target === this) closeFeedback();
+});
+document.getElementById('fbSubmit').addEventListener('click', submitFeedback);
+document.addEventListener('click', function (e) {
+  const b = e.target.closest('.fb-btn');
+  if (b && b.dataset.mi) openFeedback(Number(b.dataset.mi));
+});
+
+// ---------- 版本号 ----------
+async function showVersion() {
+  try {
+    const d = await (await fetch('/api/version')).json();
+    const el = document.getElementById('verline');
+    if (el) el.textContent = '版本 ' + (d.version || '?') +
+      (d.sha ? ' · ' + d.sha : '');
+  } catch (e) { /* 拿不到就算了，不影响功能 */ }
+}
+showVersion();
 
 // ---------- 启动 ----------
 load();
