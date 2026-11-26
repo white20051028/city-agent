@@ -111,7 +111,7 @@ def is_self_contained(question: str) -> bool:
 
 
 def build_effective_query(question: str, history: list[dict] | None,
-                           max_turns: int = 3) -> str:
+                           max_turns: int = 1) -> str:
     """把多轮历史拼成一句完整意图。**只对补充型问题拼。**
 
     **为什么不总是拼**：实测踩过坑——
@@ -122,7 +122,13 @@ def build_effective_query(question: str, history: list[dict] | None,
     所以：新问题自带意图词（吃/玩/景点）→ 当新话题，**不拼**
           新问题是「安静点的」「那个呢」这种 → 补充，**拼**
 
-    max_turns 限制：只取最近 3 条用户消息，太长会把旧话题带进来。
+    **max_turns 默认 1**（只延续最近一轮）。实测踩过：
+      ① 「附近能去哪玩」    → play
+      ② 「附近有什么好吃的」 → eat
+      ③ 「便宜点」          → 拼 3 轮后变成
+                             「附近能去哪玩；附近有什么好吃的；便宜点」
+                             → 模型看到「玩」在前，判成 play，给了公园
+      修成只拼最近 1 轮 → 拼成「附近有什么好吃的；便宜点」→ 正确判成 eat
     """
     if not history:
         return question

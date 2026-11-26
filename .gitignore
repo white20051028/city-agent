@@ -6,3 +6,4 @@ __pycache__/
 deploy/.deploy_env
 deploy/city-agent.tar.gz
 deploy/CityAgent-CA.crt
+data/feedback.jsonl

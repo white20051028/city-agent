@@ -29,6 +29,16 @@ PLAY_TYPES: tuple[str, ...] = ("110000", "080000", "061000")
 # 0505 咖啡厅 · 0506 茶艺馆 · 0507 冷饮店 · 0508 糕饼店 · 0509 甜品店
 DRINK_TYPECODES = ("0505", "0506", "0507", "0508", "0509")
 
+# **只靠 typecode 挡不住**：蜜雪冰城的 typecode 是 050000（餐饮相关大类），
+# 不是 050700（冷饮店）。实测踩过——问「附近有什么好吃的」时它排在第一位。
+# 所以再加一层品牌名过滤。
+DRINK_NAME_WORDS = (
+    "蜜雪冰城", "蜜雪", "茶百道", "星巴克", "瑞幸", "库迪", "喜茶", "古茗",
+    "沪上阿姨", "奈雪的茶", "奈雪", "茶颜悦色", "一点点", "coco", "CoCo",
+    "益禾堂", "书亦", "柠季", "霸王茶姬", "茶百道", "茉莉奶白", "七分甜",
+    "奶茶", "果茶", "鲜榨", "饮品", "冷饮", "咖啡",
+)
+
 # play 的半径：开放场景放宽一点（商圈往往比景点更远）
 PLAY_RADIUS = (3000, 8000)
 
@@ -637,14 +647,20 @@ def filter_pois(state: AgentState) -> dict:
     # **饮品和正餐分开**（用户要求）：
     #   eat   → 排除咖啡厅/冷饮/糕饼/甜品，只留正餐
     #   drink → 只留这些
+    def _is_drink(p: dict) -> bool:
+        """判断是不是饮品店：typecode 或名称命中都算。"""
+        code = (p.get("typecode") or "")[:4]
+        if code in DRINK_TYPECODES:
+            return True
+        name = (p.get("name") or "")
+        return any(w in name for w in DRINK_NAME_WORDS)
+
     if intent == "eat":
-        filtered = [p for p in pois
-                    if (p.get("typecode") or "")[:4] not in DRINK_TYPECODES]
+        filtered = [p for p in pois if not _is_drink(p)]
         if filtered:          # 全被滤掉就保留原列表，别给空
             pois = filtered
     elif intent == "drink":
-        filtered = [p for p in pois
-                    if (p.get("typecode") or "")[:4] in DRINK_TYPECODES]
+        filtered = [p for p in pois if _is_drink(p)]
         if filtered:
             pois = filtered
 
