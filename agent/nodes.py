@@ -296,6 +296,14 @@ def search(state: AgentState) -> dict:
 
     radius, cap = RADIUS.get(intent, (3000, 5000))
 
+    # **「还要更多」时放大半径**：用户点「换一批」「还有别的吗」，
+    # 说明近处的都看过了。不改半径的话会用完候选池（实测饮品 1000m 内只有 8 家，
+    # 连点两下就返回 0 个）。
+    shown = state.get("shown_ids") or []
+    if shown:
+        radius = int(radius * 1.8)
+        log = log + [f"已推荐过 {len(shown)} 个，半径放大到 {radius}m"]
+
     # **有具体品类就用 keywords 搜**：避免大类排序被近处的无关场所碾压
     cat = state.get("category_kw") or ""
     if cat:
@@ -347,13 +355,20 @@ def search(state: AgentState) -> dict:
             "tool_log": log + [f"开放式搜索：{radius}m 内景点+娱乐+商圈共 {len(pois)} 条"],
         }
 
-    pois = amap.search_around(loc, TYPE_CODE[intent], radius=radius)
+    # **drink 直接用饮品子类搜**，别用 050000 餐饮大类——
+    # 大类搜出来的 25 条大部分是正餐（食堂/面馆/快餐），
+    # filter 过滤成饮品后剩不下几个，连点两次「还有别的」就返回 0 个。
+    type_code = TYPE_CODE[intent]
+    if intent == "drink":
+        type_code = "050500|050600|050700|050800|050900"
+
+    pois = amap.search_around(loc, type_code, radius=radius)
 
     # 结果太少 → 扩半径（最多 2 次）
     tries = 0
     while len(pois) < MIN_RESULTS and radius < cap and tries < 2:
         radius = min(int(radius * 1.5), cap)
-        pois = amap.search_around(loc, TYPE_CODE[intent], radius=radius)
+        pois = amap.search_around(loc, type_code, radius=radius)
         tries += 1
 
     return {

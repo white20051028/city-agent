@@ -505,6 +505,26 @@ let sessions = [];       // [{id, title, messages, updatedAt}]
 let currentId = null;
 let lastPois = [], lastCenter = null;
 let shownIds = [];   // 已推荐过的 POI id，避免「还有别的吗」给一样的
+
+// **持久化**：shownIds 存内存里，页面一刷新就归零。
+// 手机 APK 切后台超 10 分钟回前台会自动刷新（见 README 的手机端章节），
+// 正好把 shownIds 清空 → 「还有别的吗」又开始重复。
+// 所以按会话存进 localStorage。
+function loadShownIds() {
+  try {
+    shownIds = JSON.parse(localStorage.getItem('shownIds:' + currentId) || '[]');
+    if (!Array.isArray(shownIds)) shownIds = [];
+  } catch (e) { shownIds = []; }
+}
+function saveShownIds() {
+  try {
+    if (shownIds.length) {
+      localStorage.setItem('shownIds:' + currentId, JSON.stringify(shownIds));
+    } else {
+      localStorage.removeItem('shownIds:' + currentId);
+    }
+  } catch (e) {}
+}
 let loadTimer = null;
 
 // 加载时的文案轮播（后端是同步返回的，所以这是「假进度」，
@@ -577,6 +597,7 @@ function titleOf(msgs) {
 }
 function newSession() {
   shownIds = [];
+  // 新会话 id 是新生成的，localStorage 里本来就没有，不用删旧的
   const id = 's' + Date.now();
   sessions.unshift({ id, title: '新会话', messages: [], updatedAt: Date.now() });
   currentId = id;
@@ -591,6 +612,7 @@ function switchSession(id) {
   const s = sessions.find(x => x.id === id);
   if (!s) return;
   currentId = id;
+  loadShownIds();          // 必须在 currentId 赋值之后，否则读的是上一个会话的
   messages = s.messages || [];
   saveSessions();
   renderSessions();
@@ -653,6 +675,7 @@ function load() {
   const cur = sessions.find(x => x.id === currentId);
   if (!cur) currentId = sessions[0].id;
   messages = (sessions.find(x => x.id === currentId) || {}).messages || [];
+  loadShownIds();   // 启动时恢复「已推荐过」列表，刷新页面后也不重复
 }
 function openDrawer() { $('drawer').classList.add('open'); $('overlay').classList.add('open'); }
 function closeDrawer() { $('drawer').classList.remove('open'); $('overlay').classList.remove('open'); }
@@ -938,6 +961,7 @@ async function ask(question, silent) {
         if (p.id && shownIds.indexOf(p.id) < 0) shownIds.push(p.id);
       });
       if (shownIds.length > 60) shownIds = shownIds.slice(-60);
+      saveShownIds();
     }
 
     messages.push({
@@ -988,6 +1012,7 @@ $('clearChat').addEventListener('click', () => {
   if (!confirm('清空当前会话？')) return;
   messages = [];
   shownIds = [];
+  try { localStorage.removeItem('shownIds:' + currentId); } catch (e) {}
   const s = sessions.find(x => x.id === currentId);
   if (s) { s.messages = []; s.title = '新会话'; s.updatedAt = Date.now(); }
   saveSessions(); renderSessions(); renderChat();

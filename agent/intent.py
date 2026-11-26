@@ -111,7 +111,7 @@ def is_self_contained(question: str) -> bool:
 
 
 def build_effective_query(question: str, history: list[dict] | None,
-                           max_turns: int = 1) -> str:
+                           max_turns: int = 2) -> str:
     """把多轮历史拼成一句完整意图。**只对补充型问题拼。**
 
     **为什么不总是拼**：实测踩过坑——
@@ -122,13 +122,23 @@ def build_effective_query(question: str, history: list[dict] | None,
     所以：新问题自带意图词（吃/玩/景点）→ 当新话题，**不拼**
           新问题是「安静点的」「那个呢」这种 → 补充，**拼**
 
-    **max_turns 默认 1**（只延续最近一轮）。实测踩过：
+    **拼接规则（踩过两次坑才定下来）**：
+
+    坑 1：拼 3 轮会把旧意图带进来
       ① 「附近能去哪玩」    → play
       ② 「附近有什么好吃的」 → eat
-      ③ 「便宜点」          → 拼 3 轮后变成
-                             「附近能去哪玩；附近有什么好吃的；便宜点」
-                             → 模型看到「玩」在前，判成 play，给了公园
-      修成只拼最近 1 轮 → 拼成「附近有什么好吃的；便宜点」→ 正确判成 eat
+      ③ 「便宜点」          → 拼成「能去哪玩；有什么好吃的；便宜点」
+                              → 模型看到「玩」在前，判成 play，给了公园
+
+    坑 2：只拼 1 轮，连续补充时意图链条会断
+      ① 「附近有什么喝的」 → drink
+      ② 「换一批」         → 拼「附近有什么喝的；换一批」→ drink ✅
+      ③ 「还有别的吗」     → 只拼 1 轮 = 「换一批；还有别的吗」
+                            → 「换一批」里没有「喝的」→ 模型猜成景点 ❌
+
+    **现行规则**：从最近往前取最多 max_turns 条用户消息，但
+      **必须至少包含一条「带意图词」的**（否则拼了等于没拼）。
+      如果最近的都是纯补充（「换一批」「还有别的吗」），继续往前找到有意图词的那条。
     """
     if not history:
         return question
@@ -138,10 +148,26 @@ def build_effective_query(question: str, history: list[dict] | None,
         return question
 
     users = [h.get("content", "") for h in history if h.get("role") == "user"]
-    users = [u for u in users if u.strip()][-max_turns:]
+    users = [u for u in users if u.strip()]
     if not users:
         return question
-    return "；".join(users + [question])
+
+    # 从最近往前取，**遇到第一个带意图词的就停**。
+    # 这样：
+    #   「便宜点」+ 历史[能去哪玩, 有什么好吃的] → 只拼「有什么好吃的」（最近的有意图那条）
+    #   「还有别的吗」+ 历史[喝的, 换一批]     → 拼「喝的；换一批」（换一批是纯补充，继续往前）
+    picked: list[str] = []
+    for u in reversed(users):
+        picked.append(u)
+        if any(w in u for w in INTENT_WORDS):
+            break
+
+    # 一条意图词都没有（很罕见）→ 当新问题，别硬拼
+    if not any(any(w in u for w in INTENT_WORDS) for u in picked):
+        return question
+
+    picked.reverse()
+    return "；".join(picked + [question])
 
 
 def parse_intent(user_input: str, model: str = "deepseek-chat",
