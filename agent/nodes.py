@@ -669,6 +669,15 @@ def filter_pois(state: AgentState) -> dict:
                                                     now_hour, want_feature),
                     reverse=True)
 
+    # **排除已推荐过的**（「还有别的吗」「换一批」时前端会把上一批 id 传过来）
+    shown = set(state.get("shown_ids") or [])
+    if shown:
+        before = len(scored)
+        scored = [p for p in scored if p.get("id") not in shown]
+        removed = before - len(scored)
+        if removed:
+            log = log + [f"排除已推荐过的 {removed} 个"]
+
     # 按主景区去重：华清宫-杨妃池 / 华清宫-五间厅 归到「华清宫」一个条目
     if intent in ("sight", "play", "travel"):
         scored = dedupe_by_main_spot(scored)

@@ -65,6 +65,8 @@ class AskRequest(BaseModel):
     origin_name: str = Field(default="", max_length=60)
     # 之前的对话，用于多轮（反问后用户接着答）
     history: list[dict] = Field(default_factory=list)
+    # 之前推荐过的 POI id（「还有别的吗」时排除，避免给一样的）
+    shown_ids: list[str] = Field(default_factory=list)
 
 
 @app.post("/api/ask")
@@ -78,6 +80,7 @@ def ask(req: AskRequest) -> dict:
         "origin_lon": req.origin_lon,
         "origin_name": req.origin_name,
         "history": req.history[-6:],   # 只留最近 6 条，防止无限增长
+        "shown_ids": req.shown_ids[:60],   # 最多 60 个
     })
 
     # 只把地图要用的字段挑出来（别把整个 state 发给前端）
@@ -86,6 +89,7 @@ def ask(req: AskRequest) -> dict:
         if not p.get("location"):
             continue
         pois.append({
+            "id": p.get("id"),
             "name": p.get("name"),
             "location": p.get("location"),
             "rating": p.get("rating"),

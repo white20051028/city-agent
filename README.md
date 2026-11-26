@@ -239,6 +239,55 @@ city-agent/
 | **「地方特色」靠关键词匹配** | 用「陕北/窑洞/非遗/老街」这类词加权，不是真正的文化理解 |
 | **抽象需求处理不了** | 「有仪式感」「适合纪念日」这类，只能反问或给通用推荐 |
 
+## 手机端：PWA 之外还要一个 APK
+
+### 为什么 Android 上 PWA 装不上
+
+不是我们配置的问题（manifest、图标、SW、HTTPS 全合格，桌面 Chrome 能装）。真正原因是：
+
+> **Android Chrome / Edge 的「安装应用」要经由 Google Play 服务铸造 WebAPK。**
+> 国内手机到 `play.google.com` 通常 DNS 污染或 TCP 不可达，所以点了没反应。
+> 桌面 Chrome 是本地生成快捷方式，不走这条路，所以电脑上正常。
+
+### 解法：WebView 壳 APK
+
+| 项 | 值 |
+|---|---|
+| 包名 | `site.agentcity.app` |
+| versionCode / versionName | 3 / 1.2 |
+| 签名证书 SHA-256 | `9288fe51e618058a60b12e9f87e91bf97473f31e21f940ac67c0a11758ba1a16` |
+| keystore | 工程根目录 `keystore.jks`，口令 `agentcity` |
+| 源码（手机） | `/sdcard/Download/DSH-Go/agentcity-app/` |
+| 产物（手机） | `/sdcard/Download/DSH-Go/city-agent.apk` |
+
+**⚠️ 升级必须用同一份 keystore**，否则系统认为签名不同，得先卸载再装（用户数据会丢）。
+
+### 构建链
+
+```bash
+apt install openjdk-17-jdk-headless android-sdk-build-tools android-sdk-platform-23
+# dex 用 Google Maven 的 com.android.tools:r8（build.sh 里叫 r8.jar）
+sh build.sh
+```
+
+### 壳里实现了什么
+
+- 全屏 WebView、无地址栏、自定义图标、返回键走网页后退
+- 麦克风（`onPermissionRequest`）和定位（`onGeolocationPermissionsShowPrompt`）授权，
+  拒绝时正确 `deny()` 不会挂起
+- 更新策略：冷启动必定联网重载；后台超 10 分钟回前台自动刷新；
+  **页面顶部下拉松手 = 强制刷新**（清 HTTP 缓存 + 注销 SW + 清 Cache Storage）
+- 权限状态 shim：覆盖 `navigator.permissions.query` 的 geolocation/microphone，
+  因为 **Android WebView 里这个 API 恒返回 `prompt`**（WebView 不持久化站点授权），
+  不 shim 的话设置页会一直显示「未授权」
+
+### 两个 WebView 限制（改前端要注意）
+
+| 限制 | 影响 | 处理 |
+|---|---|---|
+| `navigator.permissions.query` 恒返回 `prompt` | 设置页误显示「未授权」 | 壳里注入 shim；页面已做「不支持就显示无法查询」的降级 |
+| `Notification` API 不可用 | 「答完提醒」开关无效 | 页面启动时检测，不支持就禁用开关并改说明；要真做得在壳里加原生通知桥接（未做） |
+
 ## 部署
 
 线上环境：

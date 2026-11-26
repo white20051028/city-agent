@@ -42,6 +42,7 @@ class AgentState(TypedDict, total=False):
     origin_name: str         # 起点的显示名（如「我的位置」「华清池」）
     want_feature: bool       # 用户是否要「地方特色」（特色/本地/传统/民俗）
     category_kw: str         # 用户说的具体品类关键词（KTV/健身房/美甲），空表示没指定
+    shown_ids: list[str]     # 之前已经推荐过的 POI id（「还有别的」时排除它们）
 
     # ---------- 输出 ----------
     answer: str              # 最终回答（Markdown）
