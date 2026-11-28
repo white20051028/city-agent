@@ -160,26 +160,6 @@
   .composer .row { margin-bottom: 0; }
 
   .err { color: #f87171; }
-  /* 结果卡片（替代纯文本行） */
-  .poi-card {
-    display: flex; gap: 10px; padding: 10px 12px;
-    background: var(--card-2); border-radius: 10px; margin-bottom: 8px;
-    cursor: pointer; transition: background .15s;
-  }
-  .poi-card:active { background: #334155; }
-  .poi-rank {
-    width: 26px; height: 26px; border-radius: 50%;
-    background: var(--accent); color: #0b1220;
-    font-weight: 700; text-align: center; line-height: 26px;
-    flex-shrink: 0; font-size: 13px;
-  }
-  .poi-body { flex: 1; min-width: 0; }
-  .poi-title { font-weight: 600; font-size: 14px; }
-  .poi-tags { color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .poi-row { font-size: 12px; margin-top: 3px; }
-  .poi-row .rate { color: #fbbf24; }
-  .poi-row .near { color: var(--ok); }
-  .poi-sub { color: #64748b; font-size: 11px; margin-top: 2px; }
 
   /* 设置面板 */
   #setPanel {
@@ -270,6 +250,201 @@
     text-decoration: none; cursor: pointer;
   }
 
+
+
+  /* ============ 电脑端两栏：纯 CSS，不改 DOM ============ */
+  /* 手机端（默认）什么都不变 */
+  @media (min-width: 1024px) {
+    body {
+      max-width: none;
+      /* 内容整体右移，给左边地图腾位置 */
+      padding-left: calc(42% + 44px);
+      padding-right: 32px;
+    }
+
+    /* 地图脱离文档流，固定在左侧 */
+    #map {
+      position: fixed;
+      left: 28px;
+      top: 148px;
+      width: calc(42% - 28px);
+      height: calc(100vh - 190px);
+      margin: 0;
+      z-index: 1;
+    }
+
+    /* 筛选区（省市/起点）也放到地图上方，和地图同宽 */
+    .row:has(#prov),
+    .label,
+    .row:has(#origin) {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* 气泡/卡片解除 84% 宽度限制 */
+    .bot-col { max-width: 100%; }
+
+    /* POI 卡片两列 */
+    .bot-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    .bubble.bot,
+    .disclaimer,
+    .bot-actions { grid-column: 1 / -1; }
+    .poi-card { margin-bottom: 0; }
+
+    /* 输入框贴右栏 */
+    .composer {
+      left: calc(42% + 44px);
+      right: 32px;
+      max-width: none;
+    }
+    #followupBar {
+      position: fixed;
+      left: calc(42% + 44px);
+      right: 32px;
+      bottom: 74px;
+      width: auto;
+      background: var(--bg);
+      padding: 6px 0;
+      z-index: 5;
+    }
+  }
+
+  @media (min-width: 1400px) {
+    .bot-col { grid-template-columns: 1fr 1fr 1fr; }
+  }
+
+  /* ============ 消息行（改版） ============ */
+  .msg-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: flex-start; }
+  .msg-row.me { justify-content: flex-end; }
+  .msg-row.bot { max-width: 100%; }
+
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; margin-top: 2px;
+  }
+
+  .bot-col { flex: 1; min-width: 0; max-width: 84%; }
+
+  /* 气泡（只有导语，很短） */
+  .bubble.bot {
+    background: var(--bot); border: 1px solid var(--border);
+    border-bottom-left-radius: 4px; padding: 10px 14px;
+    margin: 0 0 8px;
+    word-break: break-word;
+  }
+  .bubble.bot strong { color: var(--text); font-weight: 700; }
+  .bubble.me {
+    background: var(--user); color: #fff;
+    border-bottom-right-radius: 4px; padding: 10px 14px;
+    max-width: 78%; margin: 0 0 10px;
+    word-break: break-word;
+  }
+
+  /* ============ 独立 POI 卡片 ============ */
+  .poi-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; margin-bottom: 8px; overflow: hidden;
+    cursor: pointer; transition: border-color .15s, transform .1s;
+  }
+  .poi-card:active { transform: scale(.99); border-color: var(--accent); }
+
+  /* 卡片头部：序号 + 名称 + 评分 */
+  .poi-head {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px 8px;
+  }
+  .poi-rank {
+    width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+    background: var(--accent); color: var(--rank-fg);
+    font-weight: 700; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .poi-head-main { flex: 1; min-width: 0; }
+  .poi-title {
+    font-weight: 600; font-size: 14.5px; line-height: 1.35;
+    color: var(--text);
+  }
+  .poi-type { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .poi-score {
+    flex-shrink: 0; color: #f59e0b; font-weight: 600; font-size: 13px;
+    display: flex; align-items: center; gap: 2px;
+  }
+
+  /* 指标行：距离 / 步行 / 人均 */
+  .poi-metrics {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 10px;
+  }
+  .metric {
+    font-size: 12px; color: var(--muted);
+    background: var(--card-2); padding: 3px 8px; border-radius: 6px;
+  }
+  .metric.near { color: var(--ok); }
+
+  /* 子景点 */
+  .poi-sub-spots {
+    font-size: 12px; color: var(--muted); padding: 0 14px 10px;
+    line-height: 1.6;
+  }
+
+  /* 卡片底部：地址 + 按钮 */
+  .poi-foot {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px 12px; border-top: 1px solid var(--border);
+  }
+  .poi-addr {
+    flex: 1; color: var(--muted); font-size: 11.5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .poi-go {
+    flex-shrink: 0; font-size: 12px; color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 999px;
+    padding: 4px 12px; font-weight: 500;
+  }
+
+  /* ============ 操作栏（思考过程 + 反馈） ============ */
+  .bot-actions {
+    display: flex; align-items: center; gap: 12px;
+    margin: -2px 0 14px 2px; font-size: 12px; color: var(--muted);
+  }
+  .bot-actions .act { cursor: pointer; }
+  .bot-actions .act:active { color: var(--accent); }
+  .bot-actions details summary {
+    cursor: pointer; list-style: none; outline: none;
+  }
+  .bot-actions details summary::-webkit-details-marker { display: none; }
+
+  /* ============ 外置追问栏 ============ */
+  #followupBar {
+    display: none; gap: 8px; padding: 8px 0 4px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #followupBar.on { display: flex; }
+  #followupBar::-webkit-scrollbar { display: none; }
+  .followup {
+    flex-shrink: 0; padding: 7px 14px; border-radius: 999px;
+    font-size: 13px; background: var(--card); color: var(--accent);
+    border: 1px solid var(--border); cursor: pointer; white-space: nowrap;
+  }
+  .followup:active { background: var(--card-2); }
+
+  /* ============ 免责说明（收纳） ============ */
+  .disclaimer {
+    font-size: 11px; color: #64748b; margin: -6px 0 14px 2px;
+    line-height: 1.6;
+  }
+  .disclaimer summary {
+    cursor: pointer; list-style: none; outline: none;
+  }
+  .disclaimer summary::-webkit-details-marker { display: none; }
+
   /* 反馈按钮 */
   .fb-btn {
     display: inline-block; margin-top: 8px; padding: 4px 10px;
@@ -301,14 +476,6 @@
   #fbBox .btns { display: flex; gap: 8px; margin-top: 12px; }
   #fbBox .btns button { flex: 1; }
 
-  /* 快捷追问 */
-  .followups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-  .followup {
-    padding: 5px 11px; border-radius: 999px; font-size: 12.5px;
-    background: rgba(56, 189, 248, .12); color: var(--accent);
-    border: 1px solid rgba(56, 189, 248, .35); cursor: pointer;
-  }
-  .followup:active { background: rgba(56, 189, 248, .25); }
 
   /* 加载态：带进度点 */
   .spinner {
@@ -478,6 +645,9 @@
     </div>
   </div>
 </div>
+
+<!-- 外置追问栏：贴在输入框上方，横向滚动 -->
+<div id="followupBar"></div>
 
 <div class="composer">
   <div class="row">
@@ -843,59 +1013,99 @@ $gps.addEventListener('click', () => {
 });
 
 // ---------- 渲染聊天 ----------
+function poiCardHtml(p, i) {
+  // 头部：序号 + 名称 + 类型 + 评分
+  const score = p.rating != null
+    ? '<div class="poi-score">⭐ ' + p.rating + '</div>' : '';
+
+  // 指标行：距离 / 步行 / 人均
+  const metrics = [];
+  if (p.distance != null) metrics.push('<span class="metric">' + p.distance + 'm</span>');
+  if (p.travel && p.travel.walk) {
+    metrics.push('<span class="metric near">🚶 ' + p.travel.walk + ' 分钟</span>');
+  } else if (p.walk_min != null) {
+    metrics.push('<span class="metric near">🚶 ' + p.walk_min + ' 分钟</span>');
+  }
+  if (p.travel && p.travel.bike) {
+    metrics.push('<span class="metric">🚲 ' + p.travel.bike + ' 分钟</span>');
+  }
+  if (p.cost != null) metrics.push('<span class="metric">人均 ' + Math.round(p.cost) + '</span>');
+  if (myLoc && p.location) {
+    const xy2 = p.location.split(',').map(Number);
+    metrics.push('<span class="metric">距你 ' + fmtDist(haversine(myLoc, xy2)) + '</span>');
+  }
+
+  const subs = (p.sub_spots && p.sub_spots.length)
+    ? '<div class="poi-sub-spots">🏛 含：' + p.sub_spots.slice(0, 5).join('、') + '</div>'
+    : '';
+
+  const addr = p.address
+    ? '<div class="poi-addr">' + p.address + '</div>' : '<div class="poi-addr"></div>';
+
+  return '<div class="poi-card" data-idx="' + i + '">' +
+    '<div class="poi-head">' +
+      '<div class="poi-rank">' + (i + 1) + '</div>' +
+      '<div class="poi-head-main">' +
+        '<div class="poi-title">' + p.name + '</div>' +
+        (p.type ? '<div class="poi-type">' + p.type + '</div>' : '') +
+      '</div>' +
+      score +
+    '</div>' +
+    (metrics.length ? '<div class="poi-metrics">' + metrics.join('') + '</div>' : '') +
+    subs +
+    '<div class="poi-foot">' + addr +
+      '<span class="poi-go">去这里 ›</span>' +
+    '</div>' +
+  '</div>';
+}
+
 function renderChat() {
-  $chat.innerHTML = messages.map(m => {
+  $chat.innerHTML = messages.map((m, mi) => {
+    // ---- 用户消息 ----
     if (m.role === 'user') {
-      return '<div class="bubble me">' + md(m.content) + '</div>';
+      return '<div class="msg-row me"><div class="bubble me">' + md(m.content) + '</div></div>';
     }
-    let inner = md(m.content || '');
+
+    // ---- AI 消息 ----
+    const parts = [];
+
+    // ① 气泡：只有导语
+    if (m.content) {
+      parts.push('<div class="bubble bot">' + md(m.content) + '</div>');
+    }
+
+    // ② 独立 POI 卡片
     if (m.pois && m.pois.length) {
-      inner += m.pois.map((p, i) => {
-        const tags = [];
-        if (p.type) tags.push(p.type);
-        if (p.distance != null) tags.push(p.distance + 'm');
+      parts.push(m.pois.map((p, i) => poiCardHtml(p, i)).join(''));
 
-        const rows = [];
-        if (p.rating != null) rows.push('<span class="rate">⭐ ' + p.rating + '</span>');
-        if (p.cost != null) rows.push('人均 ' + Math.round(p.cost));
-        if (myLoc && p.location) {
-          const xy2 = p.location.split(',').map(Number);
-          rows.push('<span class="near">距你 ' + fmtDist(haversine(myLoc, xy2)) + '</span>');
-        }
-        if (p.travel && p.travel.walk) rows.push('🚶 ' + p.travel.walk + ' 分钟');
-
-        return '<div class="poi-card" data-idx="' + i + '">' +
-          '<div class="poi-rank">' + (i + 1) + '</div>' +
-          '<div class="poi-body">' +
-            '<div class="poi-title">' + p.name + '</div>' +
-            '<div class="poi-tags">' + tags.join(' · ') + '</div>' +
-            (rows.length ? '<div class="poi-row">' + rows.join(' · ') + '</div>' : '') +
-            (p.address ? '<div class="poi-sub">' + p.address + '</div>' : '') +
-          '</div></div>';
-      }).join('');
+      // 免责说明：收纳成一行小字
+      parts.push('<details class="disclaimer"><summary>ⓘ 评分与时间说明</summary>' +
+        '评分来自高德用户打分，仅供参考；步行时间由高德路径规划计算，' +
+        '骑行/公交/驾车为按平均速度推算的估算值，实际以导航为准。' +
+        '</details>');
     }
+
+    // ③ 操作栏：思考过程 + 反馈（低调，不抢视觉）
+    const acts = [];
     if (m.tool_log && m.tool_log.length) {
-      inner += '<details style="margin-top:8px"><summary style="cursor:pointer;color:#94a3b8;font-size:12px">' +
-               'Agent 做了什么（' + m.tool_log.length + ' 步 · ' + m.elapsed + 's）</summary>' +
-               '<div style="font-size:12px;color:#94a3b8;line-height:1.8;margin-top:6px">' +
-               m.tool_log.map(l => '<div>· ' + l + '</div>').join('') + '</div></details>';
+      acts.push('<details><summary>✦ 思考过程 · ' + m.tool_log.length + ' 步 · ' +
+        m.elapsed + 's</summary>' +
+        '<div style="margin-top:6px;line-height:1.8">' +
+        m.tool_log.map(l => '<div>· ' + l + '</div>').join('') + '</div></details>');
     }
-    if (m.pois && m.pois.length) {
-      inner += '<div class="followups">' +
-        ['换一批', '便宜点', '近一点', '还有别的吗'].map(function (x) {
-          return '<span class="followup" data-q="' + x + '">' + x + '</span>';
-        }).join('') + '</div>';
-    }
-    // 每条回答都给反馈入口（带消息索引，提交时能找回上下文）
-    inner += '<div><span class="fb-btn" data-mi="' + messages.indexOf(m) + '">📝 反馈</span></div>';
-    return '<div class="bubble bot">' + inner + '</div>';
+    acts.push('<span class="act fb-btn" data-mi="' + mi + '">反馈</span>');
+    parts.push('<div class="bot-actions">' + acts.join('') + '</div>');
+
+    return '<div class="msg-row bot">' +
+      '<div class="avatar">🧭</div>' +
+      '<div class="bot-col">' + parts.join('') + '</div>' +
+    '</div>';
   }).join('');
 
-  // 点卡片 → 地图定位到那个点
-  // 注意：$chat.innerHTML 每次重建，所以事件要在这里重新绑
+  // 点卡片 → 地图聚焦
   document.querySelectorAll('.poi-card').forEach(function (el) {
     el.addEventListener('click', function () {
-      const botMsgs = messages.filter(m => m.role === 'assistant' && m.pois && m.pois.length);
+      const botMsgs = messages.filter(x => x.role === 'assistant' && x.pois && x.pois.length);
       const latest = botMsgs[botMsgs.length - 1];
       if (!latest || !map) return;
       const p = latest.pois[Number(el.dataset.idx)];
@@ -905,8 +1115,21 @@ function renderChat() {
     });
   });
 
-  // 滚到底
+  renderFollowupBar();
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+// 追问栏：贴在输入框上方，取最后一条有 POI 的回答
+function renderFollowupBar() {
+  const bar = document.getElementById('followupBar');
+  if (!bar) return;
+  const last = [...messages].reverse()
+    .find(m => m.role === 'assistant' && m.pois && m.pois.length);
+  if (!last) { bar.classList.remove('on'); bar.innerHTML = ''; return; }
+  bar.innerHTML = ['换一批', '便宜点', '近一点', '还有别的吗']
+    .map(x => '<span class="followup" data-q="' + x + '">' + x + '</span>')
+    .join('');
+  bar.classList.add('on');
 }
 
 // ---------- 请求 ----------
@@ -1003,8 +1226,8 @@ $q.addEventListener('keydown', e => {
 document.querySelectorAll('.chip').forEach(c => {
   c.addEventListener('click', () => ask(c.dataset.q));
 });
-// 快捷追问：动态生成的，用事件委托
-$chat.addEventListener('click', function (e) {
+// 快捷追问：改版后移到了 #followupBar（贴在输入框上方），要单独绑
+document.getElementById('followupBar').addEventListener('click', function (e) {
   const f = e.target.closest('.followup');
   if (f && f.dataset.q) ask(f.dataset.q);
 });

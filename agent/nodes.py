@@ -15,7 +15,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools import amap
+from tools import amap, local
 
 from .intent import parse_intent
 from .state import AgentState
@@ -249,6 +249,74 @@ def _with_distance(p: dict, origin: str) -> dict:
     return out
 
 
+# 本地景点只接受这些 type（keywords 模糊匹配会命中停车场/餐馆/地市级地名）
+_SPOT_TYPES = (
+    "风景名胜", "旅游景点", "公园广场", "公园", "博物馆", "纪念馆",
+    "国家级景点", "省级景点", "世界遗产", "寺庙道观", "文化场馆",
+    "特色商业街", "古迹遗址",
+)
+
+
+def _yulin_local_pois(state: dict, loc: str, log: list[str]) -> list[dict]:
+    """榆林专属：把本地景点表里的地方搜出来。
+
+    为什么需要：高德 travel 走 place/text 搜「景点」，返回的是
+    「榆林钟楼」「凌霄公园」这种，镇北台/红石峡/统万城反而排不上。
+
+    两道过滤：
+      ① type 必须在 _SPOT_TYPES 里（否则会搜到「红石峡东南门停车场」）
+      ② 名称要能对上（否则「红碱淖」会搜到「任记红碱淖水煮活鱼店」）
+    """
+    if not local.is_yulin(state.get("city"), state.get("district"), state.get("adcode")):
+        return []
+
+    city = state.get("city") or "榆林市"
+    out: list[dict] = []
+
+    def _acceptable(want: str, p: dict) -> bool:
+        if (p.get("type") or "") not in _SPOT_TYPES:
+            return False
+        nm = p.get("name") or ""
+        return want in nm or nm in want
+
+    for s in local.yulin_spots():
+        name = (s.get("name") or "").strip()
+        if not name:
+            continue
+
+        picked = None
+
+        # ① 先按坐标周边搜（100km 覆盖统万城 83km）
+        try:
+            found = amap.search_around_keywords(loc, name, radius=100000)
+        except Exception:  # noqa: BLE001
+            found = []
+        for p0 in found:
+            if _acceptable(name, p0):
+                picked = p0
+                break
+
+        # ② 搜不到 → 按城市关键字搜（白云山 74km、香炉寺在佳县）
+        if not picked:
+            try:
+                found = amap.search_text(name, city=city)
+            except Exception:  # noqa: BLE001
+                found = []
+            for p0 in found:
+                if _acceptable(name, p0):
+                    picked = p0
+                    break
+
+        if picked:
+            picked = dict(picked)
+            picked["_local_spot"] = name
+            out.append(picked)
+
+    if out:
+        log.append(f"补充榆林本地景点 {len(out)} 个")
+    return out
+
+
 def search(state: AgentState) -> dict:
     """按意图和半径搜索 POI。结果不足时自动扩半径。"""
     intent = state.get("intent", "sight")
@@ -281,9 +349,18 @@ def search(state: AgentState) -> dict:
         else:
             kept = raw
 
+        # **榆林：把本地景点表补进来**（镇北台/红石峡/统万城这些高德搜景点时排不上）
+        local_extra = _yulin_local_pois(state, loc, log) if loc else []
+        merged = list(kept or raw)
+        seen_ids = {p.get("id") for p in merged if p.get("id")}
+        for p in local_extra:
+            if p.get("id") and p["id"] not in seen_ids:
+                merged.append(p)
+                seen_ids.add(p["id"])
+
         label = state.get("district") or state.get("city") or area
         return {
-            "pois": kept or raw,
+            "pois": merged,
             "tool_log": log + [
                 f"全区域搜索「{label}」景点：{len(raw)} 条，"
                 f"{max_dist // 1000}km 内 {len(kept)} 条"
@@ -349,6 +426,17 @@ def search(state: AgentState) -> dict:
         pois = []
         for tp in PLAY_TYPES:
             pois.extend(amap.search_around(loc, tp, radius=radius))
+
+        # **榆林：补本地景点**。play 分支提前 return，不补的话
+        # 问「榆林有什么好玩的」只会给夫子庙和棋牌室（3km 内就这些）
+        extra = _yulin_local_pois(state, loc, log)
+        if extra:
+            seen = {p.get("id") for p in pois if p.get("id")}
+            for p0 in extra:
+                if p0.get("id") and p0["id"] not in seen:
+                    pois.append(p0)
+                    seen.add(p0["id"])
+
         return {
             "pois": pois,
             "radius_used": radius,
@@ -370,6 +458,16 @@ def search(state: AgentState) -> dict:
         radius = min(int(radius * 1.5), cap)
         pois = amap.search_around(loc, type_code, radius=radius)
         tries += 1
+
+    # 榆林：只在景点/游玩/旅游场景补本地景点
+    # （实测：不加这个判断，「榆林有什么特色吃的」会混进李自成行宫、香炉寺）
+    extra = _yulin_local_pois(state, loc, log) if intent in ("sight", "play") else []
+    if extra:
+        seen = {p.get("id") for p in pois if p.get("id")}
+        for p in extra:
+            if p.get("id") and p["id"] not in seen:
+                pois.append(p)
+                seen.add(p["id"])
 
     return {
         "pois": pois,
@@ -563,6 +661,11 @@ def rank_score(p: dict, intent: str, budget: int | None, radius: int,
     s += landmark_bonus(p, intent)  # 地标加分 / 商场降权（权重随意图变）
     s += time_bonus(p, now_hour)    # 时间加权：晚上不推白天景点
     s += feature_bonus(p, want_feature)  # 地方特色加权（只在要特色时生效）
+
+    # **本地文化景点加分**：镇北台/红石峡这些是精心维护的，不该被公园挤掉
+    # （实测：没过这一条时，问「榆林有什么景点」给的全是「凌霄公园」「沙河公园」）
+    if p.get("_local_spot"):
+        s += 0.6
 
     dist = p.get("distance")
     if isinstance(dist, (int, float)) and radius > 0:
@@ -817,7 +920,14 @@ def route(state: AgentState) -> dict:
     for p in items:
         item = dict(p)
         if p.get("location"):
-            r = amap.get_route(loc, p["location"], mode="walking")
+            # 距离太远时高德步行规划会报 OVER_DIRECTION_RANGE(20803)
+            # （实测：榆林的统万城在 83km 外，步行规划直接报错）
+            if p.get("distance") and p["distance"] > 20000:
+                continue
+            try:
+                r = amap.get_route(loc, p["location"], mode="walking")
+            except RuntimeError:
+                continue
             if r:
                 item["walk_min"] = round(r["duration"] / 60)
                 item["walk_m"] = r["distance"]
@@ -857,6 +967,33 @@ def compose(state: AgentState) -> dict:
             return {"answer": f"没搜到「{place}」的景点，可以换个城市名试试。"}
         return {"answer": "附近没搜到符合条件的地方，可以试试换个位置或放宽条件。"}
 
+    # ---- 榆林本地文化补充 ----
+    # 只对榆林生效：比赛主题是榆林，其它城市走通用逻辑
+    yulin_extra = ""
+    if local.is_yulin(state.get("city"), state.get("district"), state.get("adcode")):
+        # ① 问「非遗」→ 直接答本地非遗名录
+        q = (state.get("user_input") or "")
+        if any(k in q for k in ("非遗", "非物质文化遗产")):
+            ans = local.compose_heritage_answer()
+            if ans:
+                return {"answer": ans}
+        # ② 问「六楼骑街」→ 答六座楼
+        if "六楼" in q or "骑街" in q:
+            ans = local.compose_six_towers_answer()
+            if ans:
+                return {"answer": ans}
+        # ③ 问「特色吃的」→ 答本地美食
+        if any(k in q for k in ("特色", "小吃", "本地")) and intent == "eat":
+            ans = local.compose_food_answer()
+            if ans:
+                return {"answer": ans}
+
+        # ④ 普通结果：给每个 POI 补一句本地文化说明
+        for p in itin:
+            note = local.spot_note(p.get("name") or "")
+            if note:
+                p["local_note"] = note
+
     # travel 和 eat/sight/play 是两种任务，话术分开写
     if intent == "travel":
         base = _compose_travel(itin, place)
@@ -874,63 +1011,31 @@ def compose(state: AgentState) -> dict:
 
 def _compose_nearby(itin: list[dict], intent: str, place: str,
                     now_hour: int = 12) -> str:
-    """附近场景：突出距离和步行时间，快速决策用。"""
+    """附近场景：只出导语，POI 详情由前端卡片渲染。
+
+    **为什么不在这里拼 POI**：前端已经有卡片了，这里再拼一遍
+    就是「同一份内容显示两遍」（友人的 UI 改版原型指出的问题）。
+    """
     label = {"eat": "吃的地方", "sight": "景点", "play": "能去的地方",
              "fun": "娱乐场所", "stay": "住宿", "drink": "喝东西的地方"}.get(intent, "地方")
 
     night = now_hour >= 19 or now_hour < 6
     if place == "当前定位":
-        head = f"**当前定位附近 {len(itin)} 个{label}：**"
+        head = f"为你找到附近 {len(itin)} 个{label}"
     else:
-        head = f"**「{place}」附近 {len(itin)} 个{label}：**"
+        head = f"为你找到「{place}」附近 {len(itin)} 个{label}"
+
     if night:
         head += f"（现在是 {now_hour} 点，已按夜间可去排序）"
-    lines = [head, ""]
-    for i, p in enumerate(itin, 1):
-        meta = []
-        if p.get("type"):
-            meta.append(p["type"])
-        if p.get("distance") is not None:
-            meta.append(f"{p['distance']}m")
-        if p.get("travel"):
-            meta.append(fmt_travel(p["travel"]))
-        elif p.get("walk_min") is not None:
-            meta.append(f"步行约 {p['walk_min']} 分钟")
-        if p.get("rating") is not None:
-            meta.append(f"评分 {p['rating']}")
-        if p.get("cost") is not None:
-            meta.append(f"人均 {int(p['cost'])}")
-        lines.append(f"**{i}. {p['name']}**　" + " · ".join(meta))
-        if p.get("sub_spots"):
-            lines.append(f"　　🏛 含：{'、'.join(p['sub_spots'][:5])}")
-        if p.get("address"):
-            lines.append(f"　　{p['address']}")
-    lines.append("")
-    lines.append("_评分来自高德用户打分；步行时间由高德路径规划计算，"
-                 "骑行/公交/驾车为按平均速度推算的估算值，实际以导航为准。_")
-    return "\n".join(lines)
+
+    return head + "。"
 
 
 def _compose_travel(itin: list[dict], place: str) -> str:
-    """旅游场景：不提「附近」和步行分钟数，突出评分和类型。
+    """旅游场景：只出导语，POI 详情由前端卡片渲染。
 
     travel 是「做功课」，用户会专门跑一趟，
     所以距离和步行时间不是重点，值得不值得去才是。
+    评分和类型都在返回的 pois 里，前端卡片会渲染。
     """
-    lines = [f"**{place}值得去的地方（按高德评分排）：**", ""]
-    for i, p in enumerate(itin, 1):
-        meta = []
-        if p.get("type"):
-            meta.append(p["type"])
-        if p.get("rating") is not None:
-            meta.append(f"⭐ {p['rating']}")
-        if p.get("business_area"):
-            meta.append(p["business_area"])
-        lines.append(f"**{i}. {p['name']}**　" + " · ".join(meta))
-        if p.get("sub_spots"):
-            lines.append(f"　　🏛 含：{'、'.join(p['sub_spots'][:5])}")
-        if p.get("address"):
-            lines.append(f"　　📍 {p['address']}")
-    lines.append("")
-    lines.append("_以上按高德用户评分排序，评分仅供参考；具体开放时间建议出行前确认。_")
-    return "\n".join(lines)
+    return f"为你找到「{place}」值得去的 {len(itin)} 个地方（按高德评分排）。"
