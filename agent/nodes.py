@@ -508,8 +508,12 @@ MALL_KEYWORDS: tuple[str, ...] = (
 # 地标关键词：命中就加分。
 # 这些是用户会专门跑一趟的地方，哪怕它在高德里只是一个「广场 POI」。
 LANDMARK_KEYWORDS: tuple[str, ...] = (
-    "钟楼", "不夜城", "世博园", "老街", "古城", "遗址", "博物",
-    "公园", "塔", "寺", "宫", "陵", "祠", "庙", "关", "楼",
+    # **只用整词，不用单字**。实测踩过：
+    # 「半边楼铁锅炖」命中"楼"、「陕记老潼关肉夹馍」命中"关"，各白拿 0.15，
+    # 把 4.6 分的「杨凯斜口臊子面」压到第 3。
+    "钟楼", "不夜城", "世博园", "老街", "古城", "遗址", "博物馆",
+    "大雁塔", "小雁塔", "华清宫", "兵马俑", "碑林", "城墙", "鼓楼",
+    "回民街", "大慈恩寺", "法门寺", "黄帝陵", "历史博物馆",
 )
 
 
@@ -541,7 +545,10 @@ def landmark_bonus(p: dict, intent: str = "sight") -> float:
         return code_penalty
 
     # ③ 地标关键词加分
-    if any(k in name for k in LANDMARK_KEYWORDS):
+    # **只在「找景点/找地方玩」时加**：eat 场景下「XX楼」「XX关」只是店名，
+    # 不代表它是地标。实测「半边楼铁锅炖」「陕记老潼关肉夹馍」白拿 0.15，
+    # 把评分更高的「杨凯斜口臊子面」压到第 3。
+    if intent in ("sight", "play") and any(k in name for k in LANDMARK_KEYWORDS):
         return 0.15
 
     return 0.0
@@ -830,6 +837,9 @@ def filter_pois(state: AgentState) -> dict:
                              reverse=True)
             if intent in ("sight", "play", "travel"):
                 scored2 = dedupe_by_main_spot(scored2)
+            # **也要排除已推荐过的**：否则「还有别的吗」在放宽时会重复给同一批
+            if shown:
+                scored2 = [p for p in scored2 if p.get("id") not in shown]
             if len(scored2) > len(top):
                 top = scored2[:TARGET_RESULTS]
                 relaxed = True

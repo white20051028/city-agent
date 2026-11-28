@@ -43,6 +43,9 @@ class AgentState(TypedDict, total=False):
     want_feature: bool       # 用户是否要「地方特色」（特色/本地/传统/民俗）
     category_kw: str         # 用户说的具体品类关键词（KTV/健身房/美甲），空表示没指定
     shown_ids: list[str]     # 之前已经推荐过的 POI id（「还有别的」时排除它们）
+    radius_used: int         # 本次实际用的搜索半径（距离惩罚要按它归一化，
+                             # 不声明的话 LangGraph 会丢掉这个字段，filter 里
+                             # state.get("radius_used", 3000) 就恒等于 3000）
 
     # ---------- 输出 ----------
     answer: str              # 最终回答（Markdown）

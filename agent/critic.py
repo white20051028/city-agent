@@ -76,7 +76,8 @@ def review(state: AgentState) -> dict:
                 if p.get("id"):
                     excluded.append(p["id"])
                 problems.append(f"「{p['name']}」最快也要 {bt} 分钟，太远")
-                break
+                # **不能 break**：每轮只排 1 个、最多 2 轮，3 个超距点永远清不完。
+                # 这里把所有超距的都加进排除名单。
 
     # ④ 预算检查（仅当用户给了预算）
     if budget:
@@ -93,7 +94,7 @@ def review(state: AgentState) -> dict:
     # 打回次数到上限：不再打回，把问题写进答案让用户知道
     if problems and retries < MAX_RETRY:
         return {
-            "critic_feedback": "；".join(problems),
+            "critic_feedback": "；".join(problems[:2]),
             "max_points": max_points,
             "excluded_ids": excluded,
             "retry_count": retries + 1,

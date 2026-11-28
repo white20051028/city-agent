@@ -1,0 +1,23 @@
+# 城市探索 Agent · 依赖
+# 生成方式：pip freeze 后手删无关包（torch / transformers 等本地学习用的东西）
+
+# 后端
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.0
+
+# Agent 编排
+langgraph>=0.2
+
+# LLM（DeepSeek 走 OpenAI 兼容接口）
+openai>=1.40
+
+# 高德 / 网络
+requests>=2.31
+
+# MCP 协议（2.x 新 API：MCPServer，不是 FastMCP）
+mcp>=2.3.0
+
+# 语音识别
+tencentcloud-sdk-python>=3.0.1200
+imageio-ffmpeg>=0.5.1

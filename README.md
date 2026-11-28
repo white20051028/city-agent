@@ -255,8 +255,8 @@ city-agent/
 |---|---|
 | 包名 | `site.agentcity.app` |
 | versionCode / versionName | 3 / 1.2 |
-| 签名证书 SHA-256 | `9288fe51e618058a60b12e9f87e91bf97473f31e21f940ac67c0a11758ba1a16` |
-| keystore | 工程根目录 `keystore.jks`，口令 `agentcity` |
+| 签名证书 SHA-256 | `9288fe51…58ba1a16`（完整指纹见本地私密记录） |
+| keystore | 工程根目录 `keystore.jks`（口令见本地私密记录，不入仓库） |
 | 源码（手机） | `/sdcard/Download/DSH-Go/agentcity-app/` |
 | 产物（手机） | `/sdcard/Download/DSH-Go/city-agent.apk` |
 

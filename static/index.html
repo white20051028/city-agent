@@ -731,6 +731,14 @@ function haversine(a, b) {
 }
 const fmtDist = m => m < 1000 ? Math.round(m) + 'm' : (m / 1000).toFixed(1) + 'km';
 const mk = (t, c) => '<div class="mk ' + (c || '') + '"><span>' + t + '</span></div>';
+// HTML 转义：所有从后端/LLM 拿到的字符串在拼 innerHTML 前都要过这个
+// （md() 里已经转义了 & < >，但 poiCardHtml 和 tool_log 是直接拼的）
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function md(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
           .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -907,7 +915,7 @@ async function drawMarkers(center, pois) {
     });
     m.on('click', () => {
       const rows = ['<div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#111">'
-                    + p.name + '</div>'];
+                    + esc(p.name) + '</div>'];
       const sub = [];
       if (p.type) sub.push(p.type);
       if (p.rating != null) sub.push('⭐ ' + p.rating);
@@ -1040,14 +1048,14 @@ function poiCardHtml(p, i) {
     : '';
 
   const addr = p.address
-    ? '<div class="poi-addr">' + p.address + '</div>' : '<div class="poi-addr"></div>';
+    ? '<div class="poi-addr">' + esc(p.address) + '</div>' : '<div class="poi-addr"></div>';
 
   return '<div class="poi-card" data-idx="' + i + '">' +
     '<div class="poi-head">' +
       '<div class="poi-rank">' + (i + 1) + '</div>' +
       '<div class="poi-head-main">' +
         '<div class="poi-title">' + p.name + '</div>' +
-        (p.type ? '<div class="poi-type">' + p.type + '</div>' : '') +
+        (p.type ? '<div class="poi-type">' + esc(p.type) + '</div>' : '') +
       '</div>' +
       score +
     '</div>' +
@@ -1091,7 +1099,7 @@ function renderChat() {
       acts.push('<details><summary>✦ 思考过程 · ' + m.tool_log.length + ' 步 · ' +
         m.elapsed + 's</summary>' +
         '<div style="margin-top:6px;line-height:1.8">' +
-        m.tool_log.map(l => '<div>· ' + l + '</div>').join('') + '</div></details>');
+        m.tool_log.map(l => '<div>· ' + esc(l) + '</div>').join('') + '</div></details>');
     }
     acts.push('<span class="act fb-btn" data-mi="' + mi + '">反馈</span>');
     parts.push('<div class="bot-actions">' + acts.join('') + '</div>');

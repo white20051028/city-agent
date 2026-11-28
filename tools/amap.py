@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -24,7 +25,7 @@ from pathlib import Path
 BASE = "https://restapi.amap.com/v3"
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "cache"
 CACHE_TTL = 300          # 缓存 5 分钟
-MIN_INTERVAL = 1.0       # 两次请求最小间隔（秒）
+MIN_INTERVAL = 0.34   # 高德个人认证 3 次/秒，0.34s 留余量       # 两次请求最小间隔（秒）
 
 _last_call = [0.0]
 
@@ -44,12 +45,18 @@ def _api_key() -> str:
     raise RuntimeError("缺少 AMAP_KEY：请在项目根目录 .env 里写 AMAP_KEY=<你的key>")
 
 
+# 节流锁：原来没有锁，5 个并发请求会同时通过检查，瞬时 QPS=5
+# 超过高德免费额度 3 次/秒，触发 CUQPS_HAS_EXCEEDED_THE_LIMIT 然后更慢。
+_throttle_lock = threading.Lock()
+
+
 def _throttle() -> None:
-    """保证两次请求间隔至少 MIN_INTERVAL 秒。"""
-    gap = time.monotonic() - _last_call[0]
-    if gap < MIN_INTERVAL:
-        time.sleep(MIN_INTERVAL - gap)
-    _last_call[0] = time.monotonic()
+    """保证两次请求间隔至少 MIN_INTERVAL 秒（线程安全）。"""
+    with _throttle_lock:
+        gap = time.monotonic() - _last_call[0]
+        if gap < MIN_INTERVAL:
+            time.sleep(MIN_INTERVAL - gap)
+        _last_call[0] = time.monotonic()
 
 
 def _cache_path(url: str) -> Path:

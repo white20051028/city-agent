@@ -129,8 +129,9 @@ def feedback(payload: dict) -> dict:
         "comment": (payload.get("comment") or "").strip()[:2000],
         "question": (payload.get("question") or "")[:500],
         "answer": (payload.get("answer") or "")[:3000],
-        "history": payload.get("history") or [],
-        "tool_log": payload.get("tool_log") or [],
+        # **截断**：不限长的话，一个恶意请求就能写满磁盘
+        "history": (payload.get("history") or [])[:20],
+        "tool_log": (payload.get("tool_log") or [])[:30],
         "version": payload.get("version") or "",
         "intent": payload.get("intent") or "",
         "ua": (payload.get("ua") or "")[:200],
@@ -201,9 +202,20 @@ async def speech_to_text(request: Request) -> dict:
     腾讯云限制：≤60 秒，≤3MB。
     前端录的是 webm，后端用 ffmpeg 转 wav 16k。
     """
+    # **先看 Content-Length 再读 body**：否则一个 500MB 的请求先把内存吃满，
+    # 后面 asr.transcribe 里的 3MB 检查才生效，已经晚了。
+    MAX_ASR_BYTES = 5 * 1024 * 1024
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > MAX_ASR_BYTES:
+        return {"ok": False, "text": "",
+                "error": f"音频太大（{int(cl) // 1024 // 1024}MB），上限 5MB"}
+
     body = await request.body()
     if not body:
         return {"ok": False, "text": "", "error": "没有收到音频数据"}
+    if len(body) > MAX_ASR_BYTES:
+        return {"ok": False, "text": "",
+                "error": f"音频太大（{len(body) // 1024 // 1024}MB），上限 5MB"}
 
     # 从 Content-Type 判断源格式
     ctype = request.headers.get("content-type", "audio/webm")
