@@ -100,6 +100,10 @@ def ask(req: AskRequest) -> dict:
             "walk_min": p.get("walk_min"),
             "travel": p.get("travel"),
             "sub_spots": p.get("sub_spots") or [],
+            # 前端卡片要用：原因标签（评分最高/离你最近/人均最低）+ 高德跳转链接
+            "_reason": p.get("_reason"),
+            "uri": p.get("uri"),
+            "local_note": p.get("local_note"),
         })
 
     return {

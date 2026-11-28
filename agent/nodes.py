@@ -751,6 +751,43 @@ def dedupe_by_main_spot(pois: list[dict]) -> list[dict]:
     return list(seen.values())
 
 
+def _tag_reasons(pois: list[dict]) -> None:
+    """给每个 POI 打「为什么推荐它」的标签，前端卡片直接用。
+
+    **可以叠加**：同一个地方可能既是评分最高、又是人均最低
+    （实测「迎迎小吃」4.4 分 / 人均 10 / 165m，三个都是它）。
+    """
+    if not pois:
+        return
+
+    tags: dict[str, list[str]] = {}
+
+    def _mark(p: dict | None, label: str) -> None:
+        if p is None:
+            return
+        key = p.get("id") or p.get("name") or str(id(p))
+        tags.setdefault(key, [])
+        if label not in tags[key]:
+            tags[key].append(label)
+
+    with_rating = [p for p in pois if isinstance(p.get("rating"), (int, float))]
+    with_cost = [p for p in pois if isinstance(p.get("cost"), (int, float))]
+    with_dist = [p for p in pois if p.get("distance") is not None]
+
+    if len(with_rating) >= 2:
+        _mark(max(with_rating, key=lambda p: p["rating"]), "评分最高")
+    if len(with_dist) >= 2:
+        _mark(min(with_dist, key=lambda p: p["distance"]), "离你最近")
+    if len(with_cost) >= 2:
+        _mark(min(with_cost, key=lambda p: p["cost"]), "人均最低")
+
+    for p in pois:
+        key = p.get("id") or p.get("name") or str(id(p))
+        if key in tags:
+            p["_reason"] = " · ".join(tags[key])
+
+
+
 def filter_pois(state: AgentState) -> dict:
     """按评分排序，取前 5 个。
 
@@ -809,6 +846,8 @@ def filter_pois(state: AgentState) -> dict:
 
     if not feedback:
         top = scored[:5]
+        # **给每个 POI 打「为什么推荐它」的标签**（前端卡片会显示）
+        _tag_reasons(top)
         return {"filtered": top,
                 "tool_log": log + [f"评分排序：取前 {len(top)} 个"]}
 

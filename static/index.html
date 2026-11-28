@@ -87,7 +87,30 @@
   .bubble .meta-line { color: var(--muted); font-size: 12px; }
   .bubble .clarify { color: var(--warn); font-size: 13px; }
 
-  #map { height: 260px; border-radius: 12px; margin-bottom: 10px; }
+  /* #map：移动端吸顶（40vh），滚到哪都能看见；桌面端 fixed 左栏（见下方 @media） */
+  #map {
+    position: sticky;
+    top: 0;
+    z-index: 9;
+    height: 40vh;
+    min-height: 180px;
+    border-radius: 0 0 12px 12px;
+    margin: 0 -16px 10px;
+    background: var(--bg);
+  }
+  /* 收起按钮：移动端把地图折成一条 */
+  #mapToggle {
+    position: absolute; right: 10px; bottom: 8px; z-index: 10;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); font-size: 13px; line-height: 1;
+    display: none; align-items: center; justify-content: center;
+  }
+  @media (max-width: 1023px) {
+    #mapToggle { display: flex; }
+    #map.collapsed { height: 76px; }
+    #map.collapsed #mapToggle { bottom: auto; top: 8px; }
+  }
 
   .chips-title { color: var(--muted); font-size: 12px; margin: 4px 0 6px; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
@@ -266,12 +289,14 @@
     #map {
       position: fixed;
       left: 28px;
-      top: 148px;
+      top: 152px;
       width: calc(42% - 28px);
       height: calc(100vh - 190px);
       margin: 0;
+      border-radius: 12px;
       z-index: 1;
     }
+    #mapToggle { display: none; }
 
     /* 筛选区（省市/起点）也放到地图上方，和地图同宽 */
     .row:has(#prov),
@@ -289,7 +314,8 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      align-items: start;
+      /* stretch 而不是 start：否则第二排卡片高度不齐，底下留空洞 */
+      align-items: stretch;
     }
     .bubble.bot,
     .disclaimer,
@@ -316,6 +342,31 @@
 
   @media (min-width: 1400px) {
     .bot-col { grid-template-columns: 1fr 1fr 1fr; }
+  }
+
+  /* ============ 空状态欢迎块 ============ */
+  #welcome { padding: 20px 0 8px; }
+  .welcome-title {
+    font-size: 19px; font-weight: 700; line-height: 1.4;
+    margin-bottom: 6px;
+  }
+  .welcome-sub {
+    color: var(--muted); font-size: 13px; margin-bottom: 18px;
+  }
+  .welcome-examples { display: flex; flex-direction: column; gap: 10px; }
+  .welcome-btn {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+    padding: 14px 16px; border-radius: 12px; text-align: left;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); cursor: pointer; transition: border-color .15s;
+  }
+  .welcome-btn:active { border-color: var(--accent); }
+  .welcome-btn b { font-size: 14.5px; font-weight: 600; }
+  .welcome-btn span { color: var(--muted); font-size: 12px; }
+
+  /* 移动端隐藏「清空」（入口在抽屉里） */
+  @media (max-width: 1023px) {
+    .clear-on-desktop { display: none; }
   }
 
   /* ============ 消息行（改版） ============ */
@@ -375,6 +426,12 @@
   .poi-score {
     flex-shrink: 0; color: #f59e0b; font-weight: 600; font-size: 13px;
     display: flex; align-items: center; gap: 2px;
+  }
+
+  /* 原因标签 */
+  .poi-reason {
+    font-size: 11.5px; color: var(--accent);
+    padding: 0 14px 8px; margin-top: -2px;
   }
 
   /* 指标行：距离 / 步行 / 人均 */
@@ -505,6 +562,7 @@
 <div id="drawer">
   <div class="drawer-title"><span>会话</span><span id="closeDrawer" style="cursor:pointer">✕</span></div>
   <button class="newchat" id="newChat">＋ 新会话</button>
+<button class="newchat" id="clearChatDrawer" style="margin-top:-6px;">清空当前会话</button>
   <div id="sessList"></div>
 </div>
 
@@ -520,22 +578,38 @@
   <button class="ghost" id="reset">↺ 清除</button>
 </div>
 
+<div id="map">
+  <button id="mapToggle" title="收起/展开地图">▾</button>
+</div>
 <div id="chat"></div>
-<div id="map"></div>
+
+<!-- 空状态：一句引导 + 3 个榆林示例 -->
+<div id="welcome">
+  <div class="welcome-title">说个人均和时间，我替你选</div>
+  <div class="welcome-sub">数据来自高德，不会编造不存在的地方</div>
+  <div class="welcome-examples">
+    <button class="welcome-btn" data-q="榆林有什么非遗" data-city="榆林市">
+      <b>榆林有什么非遗</b><span>8 项国家级，带出处</span>
+    </button>
+    <button class="welcome-btn" data-q="榆林有什么景点" data-city="榆林市">
+      <b>榆林有什么景点</b><span>镇北台 / 统万城 / 香炉寺</span>
+    </button>
+    <button class="welcome-btn" data-q="榆林有什么特色吃的" data-city="榆林市">
+      <b>榆林有什么特色吃的</b><span>羊杂碎 / 拼三鲜 / 碗饦</span>
+    </button>
+  </div>
+</div>
 <div id="spinner" class="spinner">
   <span class="dot"></span><span class="dot"></span><span class="dot"></span>
   <span id="spinnerText">正在理解你的需求…</span>
 </div>
 
 <div class="chips">
+  <span class="chip" data-q="榆林有什么非遗" data-city="榆林市">榆林非遗</span>
+  <span class="chip" data-q="榆林有什么景点" data-city="榆林市">榆林景点</span>
+  <span class="chip" data-q="榆林有什么特色吃的" data-city="榆林市">榆林吃的</span>
   <span class="chip" data-q="附近有什么好吃的">附近吃什么</span>
-  <span class="chip" data-q="附近能去哪玩">附近能去哪玩</span>
-  <span class="chip" data-q="附近两小时能去哪玩">两小时能去哪</span>
-  <span class="chip" data-q="附近有什么喝的">附近有什么喝的</span>
 </div>
-
-<div id="verline" style="text-align:center;color:#475569;font-size:11px;
-     padding:4px 0 8px;"></div>
 
 <!-- ========== 设置面板 ========== -->
 <div id="setPanel">
@@ -654,7 +728,7 @@
     <input id="q" type="text" placeholder="问点什么…（可以接着追问）" autocomplete="off">
     <button class="ghost" id="mic" title="语音输入">🎤</button>
     <button id="go">发送</button>
-    <button class="ghost" id="clearChat">清空</button>
+    <button class="ghost clear-on-desktop" id="clearChat">清空</button>
   </div>
 </div>
 
@@ -699,11 +773,12 @@ let loadTimer = null;
 
 // 加载时的文案轮播（后端是同步返回的，所以这是「假进度」，
 // 但比一个静止的转圈好——用户能感知到有事情在发生）
+// 带时间的分步提示：让用户知道「还要等多久」，而不是一个转圈
 const LOADING_STEPS = [
-  '正在理解你的需求…',
-  '正在搜索附近的地方…',
-  '正在按评分和预算排序…',
-  '正在复核时间够不够…',
+  '正在理解你的需求…约 2 秒',
+  '正在搜索附近的地方…约 4 秒',
+  '正在按评分和预算排序…约 6 秒',
+  '正在复核时间够不够…快了',
 ];
 function startLoading() {
   let i = 0;
@@ -714,7 +789,7 @@ function startLoading() {
   loadTimer = setInterval(() => {
     i = (i + 1) % LOADING_STEPS.length;
     if (el) el.textContent = LOADING_STEPS[i];
-  }, 2200);
+  }, 1600);
 }
 function stopLoading() {
   clearInterval(loadTimer);
@@ -859,6 +934,15 @@ function openDrawer() { $('drawer').classList.add('open'); $('overlay').classLis
 function closeDrawer() { $('drawer').classList.remove('open'); $('overlay').classList.remove('open'); }
 
 // ---------- 地图 ----------
+// 收起/展开（移动端地图占 40vh，挡住内容时能折起来）
+document.getElementById('mapToggle').addEventListener('click', function (e) {
+  e.stopPropagation();
+  const el = document.getElementById('map');
+  el.classList.toggle('collapsed');
+  this.textContent = el.classList.contains('collapsed') ? '▴' : '▾';
+  if (map) setTimeout(() => map.resize(), 220);
+});
+
 function loadAmap() {
   return new Promise((res, rej) => {
     if (window.AMap) return res();
@@ -870,7 +954,8 @@ function loadAmap() {
 }
 async function initMap() {
   try { await loadAmap(); } catch (e) { return; }
-  map = new AMap.Map('map', { zoom: 4, center: [104.2, 35.9], resizeEnable: true });
+  // 默认中心改榆林（比赛主题），用户定位或选城市后会被覆盖
+  map = new AMap.Map('map', { zoom: 11, center: [109.741, 38.285], resizeEnable: true });
   drawMarkers(null, []);
 }
 
@@ -1021,6 +1106,25 @@ $gps.addEventListener('click', () => {
 });
 
 // ---------- 渲染聊天 ----------
+// 高德 URI：优先用后端给的 uri，没有就用坐标拼一个
+function amapUri(p) {
+  if (p.uri) return p.uri;
+  if (p.location) {
+    const [lon, lat] = String(p.location).split(',');
+    return 'https://uri.amap.com/marker?position=' + lon + ',' + lat +
+           '&name=' + encodeURIComponent(p.name || '地点') + '&src=cityagent&coordinate=gaode&callnative=1';
+  }
+  return 'javascript:void(0)';
+}
+
+// 原因标签：后端在 filter 里给每个 POI 打了 _reason（评分最高/离你最近/人均最低）
+function reasonTag(p) {
+  const r = p._reason;
+  if (!r) return '';
+  const icon = { '评分最高': '⭐', '离你最近': '📍', '人均最低': '💰' }[r] || '·';
+  return '<div class="poi-reason">' + icon + ' ' + esc(r) + '</div>';
+}
+
 function poiCardHtml(p, i) {
   // 头部：序号 + 名称 + 类型 + 评分
   const score = p.rating != null
@@ -1051,18 +1155,23 @@ function poiCardHtml(p, i) {
     ? '<div class="poi-addr">' + esc(p.address) + '</div>' : '<div class="poi-addr"></div>';
 
   return '<div class="poi-card" data-idx="' + i + '">' +
+    // 原因标签：从名次算，告诉用户「为什么推荐它」
     '<div class="poi-head">' +
       '<div class="poi-rank">' + (i + 1) + '</div>' +
       '<div class="poi-head-main">' +
         '<div class="poi-title">' + p.name + '</div>' +
-        (p.type ? '<div class="poi-type">' + esc(p.type) + '</div>' : '') +
+        // 高德的 type 是分号分隔的层级（"购物服务;商场;购物中心"），只显示最细一级
+        (p.type ? '<div class="poi-type">' + esc(p.type.split(';').pop()) + '</div>' : '') +
       '</div>' +
       score +
     '</div>' +
     (metrics.length ? '<div class="poi-metrics">' + metrics.join('') + '</div>' : '') +
+    reasonTag(p) +
     subs +
     '<div class="poi-foot">' + addr +
-      '<span class="poi-go">去这里 ›</span>' +
+      // 跳高德 URI（uri 由后端返回，没有就退回坐标）
+      '<a class="poi-go" href="' + amapUri(p) + '" target="_blank" rel="noopener" ' +
+      'onclick="event.stopPropagation()">去这里 ›</a>' +
     '</div>' +
   '</div>';
 }
@@ -1123,8 +1232,28 @@ function renderChat() {
     });
   });
 
+  // 空状态：没有消息时显示欢迎块，有消息时隐藏
+  const hasMsg = messages.length > 0;
+  const welcomeEl = document.getElementById('welcome');
+  const chipsEl = document.querySelector('.chips');
+  if (welcomeEl) welcomeEl.style.display = hasMsg ? 'none' : '';
+  if (chipsEl) chipsEl.style.display = hasMsg ? 'none' : '';
+
   renderFollowupBar();
-  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+  // 滚动策略：移动端滚到新消息顶部（这样最新回答和卡片开头就在眼前），
+  // 桌面端滚到底（右栏是独立滚动区，滚底能看到完整卡片列表）
+  if (window.innerWidth >= 1024) {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  } else {
+    const rows = document.querySelectorAll('.msg-row');
+    const lastUser = [...rows].reverse().find(r => r.classList.contains('me'));
+    if (lastUser) {
+      lastUser.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+  }
 }
 
 // 追问栏：贴在输入框上方，取最后一条有 POI 的回答
@@ -1231,8 +1360,21 @@ $go.addEventListener('click', () => { ask($q.value); $q.value = ''; });
 $q.addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); ask($q.value); $q.value = ''; }
 });
+// chips / welcome 按钮：带 data-city 的先切城市再问（榆林场景）
+function askWithCity(q, city) {
+  if (city) {
+    $prov.value = '陕西省';
+    $city.innerHTML = '<option>' + city + '</option>';
+    $city.value = city;
+  }
+  ask(q);
+}
+
 document.querySelectorAll('.chip').forEach(c => {
-  c.addEventListener('click', () => ask(c.dataset.q));
+  c.addEventListener('click', () => askWithCity(c.dataset.q, c.dataset.city));
+});
+document.querySelectorAll('.welcome-btn').forEach(b => {
+  b.addEventListener('click', () => askWithCity(b.dataset.q, b.dataset.city));
 });
 // 快捷追问：改版后移到了 #followupBar（贴在输入框上方），要单独绑
 document.getElementById('followupBar').addEventListener('click', function (e) {
@@ -1255,6 +1397,18 @@ $('menu').addEventListener('click', openDrawer);
 $('closeDrawer').addEventListener('click', closeDrawer);
 $('overlay').addEventListener('click', closeDrawer);
 $('newChat').addEventListener('click', newSession);
+// 移动端「清空」入口在抽屉里
+$('clearChatDrawer').addEventListener('click', () => {
+  if (!confirm('清空当前会话？')) return;
+  messages = [];
+  shownIds = [];
+  try { localStorage.removeItem('shownIds:' + currentId); } catch (e) {}
+  const s = sessions.find(x => x.id === currentId);
+  if (s) { s.messages = []; s.title = '新会话'; s.updatedAt = Date.now(); }
+  saveSessions(); renderSessions(); renderChat();
+  drawMarkers(null, []);
+  closeDrawer();
+});
 
 // ---------- 语音输入（腾讯云 ASR，不用浏览器自带的 WebSpeech）----------
 // **为什么不用 Web Speech API**：它底层调 Google，国内 Android 连不上，
@@ -1674,17 +1828,6 @@ loadSettings();
 applyTheme();
 applySize();
 refreshAbout();
-
-// ---------- 版本号 ----------
-async function showVersion() {
-  try {
-    const d = await (await fetch('/api/version')).json();
-    const el = document.getElementById('verline');
-    if (el) el.textContent = '版本 ' + (d.version || '?') +
-      (d.sha ? ' · ' + d.sha : '');
-  } catch (e) { /* 拿不到就算了，不影响功能 */ }
-}
-showVersion();
 
 // ---------- 启动 ----------
 load();
